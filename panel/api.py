@@ -15,6 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from panel.registry import Registry, RegistryError
 from panel.enrollment import EnrollmentStore
+from panel.host_reports import HostReports
+from protocol.host_snapshot import HostSnapshot
 from panel.manifests import ServiceDraft
 from panel.compose_policy import ComposePolicyError, validate_compose
 
@@ -127,6 +129,13 @@ class AgentHeartbeat(BaseModel):
     signature: str = Field(min_length=80, max_length=120)
 
 
+class SignedHostReport(BaseModel):
+    sequence: int = Field(ge=1, le=2**63 - 1)
+    timestamp: int = Field(ge=1)
+    signature: str = Field(min_length=80, max_length=120)
+    snapshot: HostSnapshot
+
+
 class LoginData(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
@@ -138,8 +147,9 @@ def create_app(settings: Settings | None = None, agent=None):
     store = AuthStore(settings.db_path)
     registry = Registry(settings.db_path)
     enrollment = EnrollmentStore(settings.db_path)
+    reports = HostReports(settings.db_path)
     agent = agent or AgentClient(settings)
-    app = FastAPI(title="MT Panel", version="0.3.1-dev", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="MT Panel", version="0.3.2-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
     # In-memory login throttling is a Phase 1 local guard only; production needs
     # persistent, multi-instance throttling plus MFA and reverse-proxy controls.
@@ -177,7 +187,7 @@ def create_app(settings: Settings | None = None, agent=None):
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "service": "mt-panel", "version": "0.3.1-dev"}
+        return {"ok": True, "service": "mt-panel", "version": "0.3.2-dev"}
 
     @app.get("/api/setup")
     def setup():
@@ -266,6 +276,15 @@ def create_app(settings: Settings | None = None, agent=None):
         # Signed monotonic sequence prevents replay, even in the clock-skew window.
         return registry_action(enrollment.heartbeat, server_id, payload.sequence,
                                payload.timestamp, payload.signature)
+
+    @app.get("/api/catalog/servers/{server_id}/host-report")
+    def read_host_report(server_id: str, user=Depends(current_user)):
+        return registry_action(reports.get, user["username"], server_id)
+
+    @app.post("/api/agents/{server_id}/host-report")
+    def accept_host_report(server_id: str, payload: SignedHostReport):
+        return registry_action(reports.ingest, server_id, payload.sequence,
+                               payload.timestamp, payload.signature, payload.snapshot)
 
     @app.get("/api/catalog/projects")
     def list_projects(user=Depends(current_user)):
