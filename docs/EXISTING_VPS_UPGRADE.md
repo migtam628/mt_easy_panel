@@ -104,7 +104,20 @@ checks fail, it attempts to restore the prior application directory and SQLite
 snapshot and restart the two MT Panel services automatically. **Do not assume
 rollback succeeded without reading the command output and rechecking health.**
 
-After promotion, confirm:
+After promotion, run the read-only release verifier from your Git checkout.
+It compares the running dashboard with v0.3.2-dev and checks that the
+enrollment and signed reporting schema exists without modifying SQLite:
+
+```bash
+cd ~/mt_easy_panel
+python3 scripts/verify-live-vps.py --check --expected-version 0.3.2-dev
+```
+
+If it says the dashboard is `0.2.1-dev`, the code was only staged or the
+activation did not complete. This is a deliberate failure, not a request to
+reinstall MT Panel. Confirm activation and rollback output before continuing.
+
+After promotion, also confirm:
 
 ```bash
 python3 scripts/vps-status.py --check
