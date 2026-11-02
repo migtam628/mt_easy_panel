@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from panel.registry import Registry, RegistryError
 from panel.manifests import ServiceDraft
+from panel.compose_policy import ComposePolicyError, validate_compose
 
 from panel.auth import AuthStore
 
@@ -91,6 +92,9 @@ class AgentClient:
         except (ValueError, KeyError) as exc:
             raise HTTPException(503, "Host agent sent an invalid response. Check both service versions.") from exc
 
+
+class ComposePreview(BaseModel):
+    source: str = Field(min_length=1, max_length=32768)
 
 class ServerData(BaseModel):
     name: str = Field(min_length=2, max_length=72)
@@ -248,6 +252,14 @@ def create_app(settings: Settings | None = None, agent=None):
                              user=Depends(current_user)):
         require_write_origin(request)
         return registry_action(registry.add_draft, user["username"], environment_id, manifest)
+
+    @app.post("/api/validate/compose")
+    def compose_preview(data: ComposePreview, request: Request, user=Depends(current_user)):
+        require_write_origin(request)
+        try:
+            return {"data": validate_compose(data.source)}
+        except ComposePolicyError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @app.get("/api/server/overview")
     async def overview(user=Depends(current_user)):
