@@ -12,7 +12,8 @@ Usage:
   bash scripts/upgrade-vps.sh --stage   # Build/test separate release directory
 
 This script is NOT the first-install script.
-Staging is isolated under /opt/mt-panel-stage.*.
+Staging creates a separate directory under /opt/mt-panel-stage.*.
+Existing stages are preserved (up to five total candidates).
 It cannot activate an upgrade, restart services or alter credentials/database.
 HELP
 }
@@ -54,10 +55,16 @@ esac
 
 [[ "$EUID" -eq 0 ]] || { echo "FAIL: --stage requires root" >&2; exit 1; }
 check
-if find /opt -mindepth 1 -maxdepth 1 -name 'mt-panel-stage.*' -print -quit | grep -q .; then
-  echo "FAIL: An existing MT Panel staged upgrade is present. Review it first." >&2
+# Multiple independently tested candidates may coexist. Never overwrite or
+# delete an older stage, particularly when it is pending promotion.
+# Keep a conservative cap to protect limited VPS disk space.
+existing_stages="$(find /opt -mindepth 1 -maxdepth 1 -type d -name 'mt-panel-stage.*' -print | wc -l)"
+if [[ "$existing_stages" -ge 5 ]]; then
+  echo "FAIL: Five or more staged MT Panel candidates exist under /opt." >&2
+  echo "Review existing stages and disk capacity before creating another." >&2
   exit 1
 fi
+echo "INFO: Preserving $existing_stages existing stage(s); preparing a new candidate."
 
 # git archive ignores all untracked and ignored files (.bashrc, .env, state).
 stage="$(mktemp -d /opt/mt-panel-stage.XXXXXXXX)"
