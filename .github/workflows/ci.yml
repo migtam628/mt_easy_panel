@@ -26,3 +26,4 @@ jobs:
       - run: node --check web/app.js
       - run: bash -n scripts/dev.sh scripts/install-vps.sh scripts/vps-preflight.sh scripts/test.sh scripts/upgrade-vps.sh scripts/tailscale-access.sh
       - run: python -m pytest tests/test_vps_installer.py -q
+      - run: python -m py_compile scripts/promote-vps.py scripts/vps-status.py
