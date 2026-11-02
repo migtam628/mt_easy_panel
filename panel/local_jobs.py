@@ -239,8 +239,8 @@ class LocalJobs:
                 raise RegistryError("Job not found", 404)
             if row["state"] not in ("RUNNING", "NEEDS_REVIEW"):
                 raise RegistryError("Only running/unresolved lab jobs can be reconciled", 409)
-            if (row["state"] == "RUNNING" and row["lease_until"] is not None
-                    and row["lease_until"] >= now):
+            if (row["state"] == "RUNNING"
+                    and (row["lease_until"] is None or row["lease_until"] >= now)):
                 raise RegistryError("Job lease still active; concurrent reconciliation denied", 409)
             db.execute("""UPDATE local_deployment_jobs SET state='NEEDS_REVIEW',
                 lease_token=NULL,lease_until=NULL,error_code='operator_review_required',
