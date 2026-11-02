@@ -74,7 +74,7 @@ mt-panel/
 
 ## New pilot workflow (v0.2.0-dev)
 
-After logging in, open **Servers** to create a local server *record* (unpaired) and **Projects** to create a project. Select **Manage** on a project to add environments and save image deployment drafts. A draft requires an image reference pinned to a complete sha256 digest, an internal container port, and conservative default resources. No actual Docker action is performed. The server registry does not accept SSH keys, host addresses or arbitrary URLs.
+After logging in, open **Servers** to create a local server *record* (unpaired) and **Projects** to create a project. Select **Manage** on a project to add environments and save image deployment drafts. A draft requires an image reference pinned to a complete sha256 digest, an internal container port, and conservative default resources. No actual Docker action is performed. The server registry does not accept SSH keys, host addresses or arbitrary URLs. The **Compose preview** in project management accepts only 1-4 digest-pinned, read-only services with internal exposed ports. Rejecting unsupported fields is intentional. It does not create containers, perform builds, or run Compose.
 
 For the VPS upgrade: stop the running development server, run `git pull --ff-only origin main`, install requirements using `.venv/bin/python -m pip install -r requirements.txt`, optionally install dev requirements and run `bash scripts/test.sh`, then restart. Existing `.env` and `state/` remain local; SQLite adds the new tables without overwriting administrators. Keep ports loopback-only and use the SSH/Tailscale tunnel.
 
