@@ -31,3 +31,30 @@ jobs:
       - run: python -m compileall -q agent panel
       - run: python -m pytest tests/test_enrollment.py -q
       - run: python -m pytest tests/test_agent_heartbeat.py tests/test_host_reports.py tests/test_fleet.py tests/test_operational_pages.py tests/test_diagnostics.py tests/test_local_execution.py tests/test_lab_jobs.py tests/test_recovery.py -q
+
+  ephemeral-docker-lab:
+    name: Disposable Docker Engine lab (non-production)
+    # Only run on GitHub-hosted ephemeral runners, never on a self-hosted
+    # runner or on the user's production VPS. No deployment credentials.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 18
+    env:
+      MT_PANEL_EPHEMERAL_DOCKER_TEST: YES_DISPOSABLE_GITHUB_HOSTED_RUNNER_ONLY
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Prove runner is disposable, not production
+        run: |
+          test "$GITHUB_ACTIONS" = true
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$RUNNER_OS" = Linux
+          test ! -e /etc/mt-panel/mt-panel.env
+          docker info >/dev/null
+      - name: Test signed lab Docker create / health / stop and exact ownership
+        run: python -m pytest tests/integration/test_real_docker_lab.py -q -s
