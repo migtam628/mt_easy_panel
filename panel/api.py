@@ -289,9 +289,9 @@ def create_app(settings: Settings | None = None, agent=None):
     def audit_events(limit: int = Query(default=50, ge=1, le=100), user=Depends(current_user)):
         return {"data": store.list_audit_events(limit)}
 
-    def registry_action(fn, *args):
+    def registry_action(fn, *args, **kwargs):
         try:
-            return {"data": fn(*args)}
+            return {"data": fn(*args, **kwargs)}
         except RegistryError as exc:
             raise HTTPException(exc.status, str(exc)) from exc
 
