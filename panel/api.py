@@ -17,6 +17,7 @@ from panel.registry import Registry, RegistryError
 from panel.enrollment import EnrollmentStore
 from panel.host_reports import HostReports
 from panel.fleet import FleetStore
+from panel.deployment_readiness import DeploymentReadiness
 from protocol.host_snapshot import HostSnapshot
 from panel.manifests import ServiceDraft
 from panel.compose_policy import ComposePolicyError, validate_compose
@@ -151,8 +152,9 @@ def create_app(settings: Settings | None = None, agent=None):
     enrollment = EnrollmentStore(settings.db_path)
     reports = HostReports(settings.db_path)
     fleet = FleetStore(settings.db_path)
+    deployments = DeploymentReadiness(settings.db_path)
     agent = agent or AgentClient(settings)
-    app = FastAPI(title="MT Panel", version="0.3.4-dev", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="MT Panel", version="0.3.5-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
     # In-memory login throttling is a Phase 1 local guard only; production needs
     # persistent, multi-instance throttling plus MFA and reverse-proxy controls.
@@ -190,7 +192,7 @@ def create_app(settings: Settings | None = None, agent=None):
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "service": "mt-panel", "version": "0.3.4-dev"}
+        return {"ok": True, "service": "mt-panel", "version": "0.3.5-dev"}
 
     @app.get("/api/setup")
     def setup():
@@ -248,6 +250,62 @@ def create_app(settings: Settings | None = None, agent=None):
     def fleet_summary(user=Depends(current_user)):
         # Local owner-scoped SQLite reads only. This is NOT remote Docker.
         return {"data": fleet.summary(user["username"])}
+
+    @app.get("/api/monitoring/overview")
+    async def monitoring_overview(user=Depends(current_user)):
+        # Fleet summaries are signed self-reported identity telemetry.
+        # The local Docker overview remains separately loopback-token scoped.
+        snapshot = fleet.summary(user["username"])
+        local = None
+        local_state = "unavailable"
+        try:
+            overview = await agent.get("overview")
+            if isinstance(overview, dict):
+                local = {
+                    "hostname": str(overview.get("hostname", ""))[:100],
+                    "containers_total": overview.get("containers_total"),
+                    "containers_running": overview.get("containers_running"),
+                    "cpus": overview.get("cpus"),
+                    "memory_bytes": overview.get("memory_bytes"),
+                    "disk_total_bytes": overview.get("disk_total_bytes"),
+                    "disk_used_bytes": overview.get("disk_used_bytes"),
+                    "source": overview.get("source"),
+                }
+                local_state = "connected" if overview.get("source") != "demo" else "demo"
+        except (HTTPException, ValueError, TypeError):
+            # Do not convert local Docker reachability failures into fake
+            # healthy values or suppress the fleet summary.
+            pass
+        return {"data": {
+            "fleet": snapshot, "local_host": local,
+            "local_state": local_state, "remote_docker_access": False,
+            "notifications_enabled": False, "polling_enabled": False,
+        }}
+
+    @app.get("/api/deployments/readiness")
+    def deployment_readiness(user=Depends(current_user)):
+        return {"data": deployments.list_drafts(user["username"])}
+
+    @app.get("/api/settings/security")
+    def security_posture(user=Depends(current_user)):
+        # Fixed allowlisted facts only; never expose AGENT_TOKEN, DB paths,
+        # private agent keys, environment contents or cookie values.
+        return {"data": {
+            "owner": user["username"], "app_version": "0.3.5-dev",
+            "public_origin": settings.origin,
+            "secure_cookies": settings.cookie_secure,
+            "session_cookie_http_only": True,
+            "session_cookie_same_site": "Strict",
+            "agent_connection": "loopback_only",
+            "local_docker_inventory": "read_only",
+            "remote_docker_access": False,
+            "container_writes": False,
+            "deployment_execution": False,
+            "multi_user_roles": False,
+            "multi_factor_auth": False,
+            "security_audit": "local_sqlite",
+            "background_alerts": False,
+        }}
 
     @app.get("/api/catalog/servers")
     def list_servers(user=Depends(current_user)):
