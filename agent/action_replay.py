@@ -7,6 +7,7 @@ This DB belongs only to the Docker agent OS account, never the web process.
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import contextmanager
 import sqlite3
 import time
 
@@ -30,10 +31,18 @@ class ActionReplay:
                     ON local_action_attempts(started_at);
             """)
 
+    @contextmanager
     def connect(self):
         connection = sqlite3.connect(self.path, timeout=5, isolation_level=None)
         connection.execute("PRAGMA busy_timeout=5000")
-        return connection
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def consume(self, nonce: str, job_id: str, draft_id: str,
                 operation: str, now: int | None = None) -> bool:
