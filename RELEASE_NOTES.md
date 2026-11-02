@@ -12,7 +12,9 @@
   explicit approval, per-host exclusive lease and atomic transition/audit
   events. An uncertain result enters NEEDS_REVIEW and holds the host lock.
 - Added manual API operations: DRAFT creation, QUEUED approval and RUN,
-  plus owner-only job list and events. No automatic background execution.
+  plus owner-only job list and events. The Deployments UI exposes a
+  **read-only recent job status table**, not a write/execute button.
+  No automatic background execution.
 - Added basic candidate health gate: success marks HEALTHY; failure stops
   the new candidate and marks ROLLED_BACK **without any traffic switch**.
   Actual previous-digest production rollback is not yet implemented.
