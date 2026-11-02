@@ -139,7 +139,7 @@ def create_app(settings: Settings | None = None, agent=None):
     registry = Registry(settings.db_path)
     enrollment = EnrollmentStore(settings.db_path)
     agent = agent or AgentClient(settings)
-    app = FastAPI(title="MT Panel", version="0.3.0-dev", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="MT Panel", version="0.3.1-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
     # In-memory login throttling is a Phase 1 local guard only; production needs
     # persistent, multi-instance throttling plus MFA and reverse-proxy controls.
@@ -177,7 +177,7 @@ def create_app(settings: Settings | None = None, agent=None):
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "service": "mt-panel", "version": "0.3.0-dev"}
+        return {"ok": True, "service": "mt-panel", "version": "0.3.1-dev"}
 
     @app.get("/api/setup")
     def setup():

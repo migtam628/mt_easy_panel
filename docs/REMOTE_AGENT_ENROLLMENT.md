@@ -70,10 +70,74 @@ The API and CLI refuse unencrypted HTTP, public-domain targets, public IPs,
 URL credentials, and redirects. No Tailscale Serve route is changed by
 enrollment. The control plane remains at the existing private HTTPS endpoint.
 
+## Optional scheduled heartbeat — not installed automatically
+
+After manually enrolling an identity on a **separate, trusted Linux machine**,
+operators can run the one-shot heartbeat with a private JSON configuration.
+Run these commands on the remote agent as an unprivileged user. Do **not**
+enable the timer on the MT Panel control plane just to simulate a remote host.
+
+Create `~/.config/mt-panel/heartbeat.json` (mode 0600) with this exact shape,
+using the real server ID and an absolute file path for that user's private key:
+
+```json
+{
+  "control_url": "https://moobee-stream-vps.tail08e9d7.ts.net:8443",
+  "server_id": "YOUR_32_CHARACTER_SERVER_ID",
+  "key_file": "/home/YOUR_USER/.local/share/mt-panel/agent-ed25519.pem"
+}
+```
+
+Use `mkdir -p -m 700 ~/.config/mt-panel` and
+`chmod 600 ~/.config/mt-panel/heartbeat.json`. No invitation code is stored
+in this file. The application verifies the config file's owner and privacy,
+the absolute key path, and the Tailscale-only HTTPS origin.
+
+To validate without a network request and then send one heartbeat manually:
+
+```bash
+cd ~/mt_easy_panel
+.venv/bin/python -m agent.heartbeat --check \
+  --config ~/.config/mt-panel/heartbeat.json
+.venv/bin/python -m agent.heartbeat --once \
+  --config ~/.config/mt-panel/heartbeat.json
+```
+
+An optional **systemd user timer** is provided but never installed/enabled
+automatically. The unit assumes the remote user's code checkout is at
+`~/mt_easy_panel`, with its Python virtual environment in `.venv`.
+After validating a manual heartbeat, the operator may opt into the timer:
+
+```bash
+mkdir -p ~/.config/systemd/user
+install -m 644 deployment/systemd-user/mt-panel-heartbeat.service \
+  ~/.config/systemd/user/mt-panel-heartbeat.service
+install -m 644 deployment/systemd-user/mt-panel-heartbeat.timer \
+  ~/.config/systemd/user/mt-panel-heartbeat.timer
+systemctl --user daemon-reload
+systemctl --user enable --now mt-panel-heartbeat.timer
+systemctl --user list-timers --all
+```
+
+This timer runs under the user's own account, not Docker's group or root.
+It issues an outbound heartbeat about every minute. Whether user timers
+persist across logout or reboot depends on the host's user-session settings;
+do not enable linger without understanding the resulting service persistence.
+To disable this optional feature:
+
+```bash
+systemctl --user disable --now mt-panel-heartbeat.timer
+```
+
+The heartbeat sequence counter is saved beside the private key in a private
+`*.sequence` file. It is locked, fsynced before network submission and
+continues increasing across process restarts and backward wall-clock changes.
+A lost request can skip a number, but an old number cannot be replayed.
+
 ## Current limits
 
-- Heartbeat CLI is **manual only**. No systemd timer/daemon has been installed
-  to schedule heartbeats yet.
+- Heartbeat CLI supports manual one-shot use and an **optional, uninstalled**
+  systemd user timer template. Nothing schedules traffic without operator action.
 - A heartbeat verifies the agent key and freshness only; it does **not**
   check Docker availability, report CPU/memory metrics, or attest the physical
   identity of the machine.

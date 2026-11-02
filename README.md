@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.0-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.1-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The dedicated Ubuntu 26.04 systemd pilot installer and Python 3.14 CI checks are available, but live Docker inventory and installer operation on the user's VPS are not yet verified.
 
@@ -126,6 +126,16 @@ stored in plaintext. See the [enrollment operator guide](docs/REMOTE_AGENT_ENROL
 Existing MT Panel installations must be updated using the reviewed staged
 promotion procedure; `git pull` alone does not update the running systemd
 services. The current VPS still runs whichever code was most recently promoted.
+
+## Optional outbound heartbeat runner (v0.3.1-dev)
+
+A separate enrolled Linux user may validate a private heartbeat JSON config
+with `python -m agent.heartbeat --check --config PATH`, send a manual
+`--once` heartbeat, or explicitly enable the supplied systemd user timer.
+Durable, synchronized sequence counters prevent reuse after clock corrections.
+No timer is enabled by installing or upgrading MT Panel, and the control
+plane never executes commands on an enrolled host. Follow the
+[agent enrollment guide](docs/REMOTE_AGENT_ENROLLMENT.md).
 
 ## Security boundary
 

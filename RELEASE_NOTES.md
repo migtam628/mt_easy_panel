@@ -1,3 +1,11 @@
+## v0.3.1-dev — Durable outbound agent heartbeats
+
+- Added a durable owner-only `*.sequence` heartbeat counter using Linux file locks and fsync; signed sequence numbers survive agent restarts and backward clock adjustments.
+- Added a private JSON-configured `agent.heartbeat --check|--once` entry point, with no Docker access or inbound ports.
+- Added optional, **disabled by default** user-systemd one-shot service and timer templates for heartbeat-only operation.
+- Added in-process full API-to-agent enrollment/heartbeat/revocation integration tests without requiring a live remote host.
+- Updated the operator runbook; production remote Docker inventory remains disabled until tested on a disposable Tailscale node.
+
 ## v0.3.0-dev — Private agent identity and enrollment foundation
 
 - Added owner-only, expiring, one-use 256-bit enrollment invitations stored by SHA-256 hash, with automatic invalidation of replaced invitations.
