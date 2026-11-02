@@ -174,3 +174,6 @@ def test_page_navigation_is_active_and_read_only():
     assert "/api/deployments/jobs?limit=50" in js
     assert "no UI execution buttons" in js
     assert "showDraftReview(d)" in js
+    assert "saveDraftJob(d, dryRun)" in js
+    assert "execute: false" in js
+    assert "No container will be created or changed" in js
