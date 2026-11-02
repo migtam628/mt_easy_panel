@@ -73,6 +73,45 @@ function renderStats(data) {
   ];
   items.forEach((item) => holder.append(metric(...item)));
 }
+function secondaryRows(headers, rows) {
+  const head = $('secondary-head'); head.replaceChildren();
+  const hr = document.createElement('tr');
+  headers.forEach(h => hr.append(el('th', h)));
+  head.append(hr);
+  const body = $('secondary-body'); body.replaceChildren();
+  if (!rows.length) {
+    const tr = document.createElement('tr');
+    const td = el('td', 'No local container results.', 'empty');
+    td.colSpan = headers.length; tr.append(td); body.append(tr);
+  } else rows.forEach(row => body.append(row));
+  $('secondary-count').textContent = rows.length + ' shown';
+}
+async function showDraftReview(draft) {
+  $('draft-review-title').textContent = draft.name + ' / Static security review';
+  $('draft-review-details').replaceChildren();
+  $('draft-review-checks').replaceChildren();
+  $('draft-review-dialog').showModal();
+  try {
+    const data = (await api('/api/deployments/drafts/' +
+      encodeURIComponent(draft.id) + '/review')).data;
+    const details = $('draft-review-details');
+    details.append(el('div', 'Project: ' + data.project +
+      ' · Environment: ' + data.environment, 'config-item'));
+    details.append(el('div', 'Server: ' + (data.server || 'Not assigned'), 'config-item'));
+    if (data.manifest) {
+      details.append(el('div', 'Pinned image: ' + data.manifest.image, 'config-item mono'));
+      details.append(el('div', 'Resources: ' + data.manifest.cpu_limit +
+        ' CPU · ' + data.manifest.memory_mb + ' MB RAM · Internal port ' +
+        data.manifest.container_port + ' · Read-only filesystem', 'config-item'));
+    }
+    data.checks.forEach(check => $('draft-review-checks').append(el('div',
+      (check.passed ? 'PASS' : 'BLOCKED') + ' · ' + check.explanation, 'config-item')));
+    $('draft-review-checks').append(el('div',
+      'EXECUTION DISABLED — this review does not deploy anything.', 'config-item'));
+  } catch (error) {
+    $('draft-review-details').append(el('div', error.message, 'error'));
+  }
+}
 function tableRows(headers, rows) {
   const head = $('table-head'); head.replaceChildren();
   const hr = document.createElement('tr'); headers.forEach(h => hr.append(el('th', h))); head.append(hr);
@@ -201,15 +240,47 @@ async function refresh() {
         ? 'Local host connected · Remote health is self-reported and signed'
         : 'Local agent ' + data.local_state + ' · Remote health is self-reported and signed';
       showGuide('Monitoring is on-demand only. No background polling, alerts, remote Docker access, or automatic interventions are active.');
+      const localDiagnostics = (await api('/api/monitoring/diagnostics')).data;
+      $('secondary-panel').classList.remove('hidden');
+      if (localDiagnostics.state === 'unavailable') {
+        secondaryRows(['Container', 'State', 'Docker status', 'Health indicator'], []);
+        $('secondary-subtitle').textContent = 'Local Docker inventory unavailable. No health status inferred.';
+      } else {
+        const summary = localDiagnostics.diagnostics;
+        const sample = summary.containers.slice(0, 100);
+        secondaryRows(['Container', 'State', 'Docker status', 'Health indicator'],
+          sample.map(c => plainRow([c.name, c.state, c.status,
+            c.flags.length ? c.flags.join(', ') :
+              c.health === 'reported_healthy' ? 'Reported healthy' :
+                c.health === 'unhealthy' ? 'Reported unhealthy' : 'No health report'])));
+        const warning = summary.warnings;
+        const capacity = localDiagnostics.capacity;
+        $('secondary-subtitle').textContent =
+          (localDiagnostics.state === 'demo' ? 'DEMO DATA · ' : 'LOCAL DOCKER · ') +
+          summary.sampled + ' containers observed · ' +
+          warning.unhealthy + ' unhealthy · ' + warning.restarting + ' restarting · ' +
+          warning.dead + ' dead · Disk free: ' +
+          (capacity && capacity.disk_free_percent !== null
+            ? capacity.disk_free_percent + '%' : 'not reported') +
+          (summary.containers.length > 100 ? ' · Showing first 100; see Containers for full inventory' : '');
+      }
     } else if (view === 'deployments') {
       renderStats(null);
       const result = (await api('/api/deployments/readiness')).data;
       tableRows(['Draft', 'Project', 'Environment', 'Server', 'Image (pinned)',
-        'State / blockers'], result.drafts.map(d => plainRow([
-          d.name, d.project, d.environment, d.server_name || 'Not assigned',
-          d.image ? (d.image.length > 70 ? d.image.slice(0, 67) + '…' : d.image) : 'Unavailable',
-          'Draft only · ' + d.blockers.join(', ')
-        ])));
+        'State / blockers', 'Review'], result.drafts.map(d => {
+          const tr = plainRow([
+            d.name, d.project, d.environment, d.server_name || 'Not assigned',
+            d.image ? (d.image.length > 70 ? d.image.slice(0, 67) + '…' : d.image) : 'Unavailable',
+            'Draft only · ' + d.blockers.join(', ')
+          ]);
+          const last = document.createElement('td');
+          const button = el('button', 'Review policy', 'link-button');
+          button.type = 'button';
+          button.addEventListener('click', () => showDraftReview(d));
+          last.append(button); tr.append(last);
+          return tr;
+        }));
       $('table-subtitle').textContent = result.total_returned + ' saved drafts' +
         (result.truncated ? ' (first 200)' : '') + ' · 0 executable deployments';
       showGuide('Read-only deployment readiness. Drafts are not running workloads. No deployment queue, builds, Compose up, or Docker writes are implemented. Create drafts under Projects.');
@@ -263,6 +334,7 @@ function switchView(view) {
   $('page-desc').textContent = desc[1]; $('table-title').textContent = desc[2];
   $('demo-banner').classList.add('hidden');
   showGuide('');
+  $('secondary-panel').classList.add('hidden');
   $('create-resource').classList.toggle('hidden', !['servers','projects'].includes(view));
   $('create-resource').textContent = view === 'servers' ? '+ Add server' : '+ New project';
   refresh();
@@ -541,6 +613,7 @@ async function init() {
   document.querySelectorAll('.nav-item').forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
   $('refresh').addEventListener('click', refresh);
   $('close-log').addEventListener('click', () => $('log-dialog').close());
+  $('close-draft-review').addEventListener('click', () => $('draft-review-dialog').close());
   $('logout').addEventListener('click', async () => {
     try { await api('/api/auth/logout', {method:'POST'}); } finally { showLogin(); }
   });
