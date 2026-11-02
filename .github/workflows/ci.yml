@@ -8,11 +8,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.14']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -20,3 +24,5 @@ jobs:
       - run: python -m pytest -q
       - run: python -m compileall -q agent panel
       - run: node --check web/app.js
+      - run: bash -n scripts/dev.sh scripts/install-vps.sh scripts/vps-preflight.sh scripts/test.sh
+      - run: python -m pytest tests/test_vps_installer.py -q
