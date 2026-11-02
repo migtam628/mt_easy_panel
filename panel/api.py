@@ -12,7 +12,7 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from panel.registry import Registry, RegistryError
 from panel.enrollment import EnrollmentStore
 from panel.host_reports import HostReports
@@ -130,6 +130,7 @@ class AgentHeartbeat(BaseModel):
 
 
 class SignedHostReport(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
     sequence: int = Field(ge=1, le=2**63 - 1)
     timestamp: int = Field(ge=1)
     signature: str = Field(min_length=80, max_length=120)
