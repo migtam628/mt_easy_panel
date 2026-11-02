@@ -2,8 +2,13 @@
 from __future__ import annotations
 
 import hmac
+import logging
 import os
+import time
+from collections import deque
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from agent.local_execution import ActionDenied, LocalDockerWriter
+from protocol.local_action import LocalAction, verify_action
 from agent.docker import CONTAINER_ID, DockerError, DockerReader
 
 
@@ -36,7 +41,9 @@ class DemoReader:
         return "DEMO OUTPUT — no live container logs were queried.\n"
 
 
-def create_app(reader=None, token: str | None = None):
+def create_app(reader=None, token: str | None = None, *,
+               writer=None, enable_local_writes: bool | None = None,
+               execution_key: str | None = None):
     app = FastAPI(title="MT Panel Host Agent", version="0.1.1", docs_url=None,
                   redoc_url=None, openapi_url=None)
     token = token if token is not None else os.environ.get("AGENT_TOKEN", "")
@@ -44,6 +51,21 @@ def create_app(reader=None, token: str | None = None):
         raise RuntimeError("AGENT_TOKEN must be a unique secret of 32+ characters")
     reader = reader or (DemoReader() if os.environ.get("AGENT_DEMO_MODE") == "true"
                         else DockerReader())
+    lab_enabled = (os.environ.get("AGENT_LOCAL_EXECUTION_ENABLED") == "true"
+                   if enable_local_writes is None else enable_local_writes)
+    lab_ack = os.environ.get("AGENT_EXECUTION_LAB_ACK", "")
+    execution_key = (execution_key if execution_key is not None
+                     else os.environ.get("AGENT_EXECUTION_KEY", ""))
+    if lab_enabled and (lab_ack != "I_ACCEPT_DISPOSABLE_HOST_ONLY"
+                        or len(execution_key) < 32
+                        or os.environ.get("AGENT_DEMO_MODE") == "true"):
+        raise RuntimeError("Lab Docker writes require explicit isolated-host acknowledgement, "
+                           "a dedicated 32+ character key, and no demo mode")
+    if lab_enabled and writer is None:
+        writer = LocalDockerWriter(DockerReader().socket_path)
+    agent_log = logging.getLogger("mtpanel.agent.lab")
+    seen: dict[str, int] = {}
+
 
     @app.get("/health")
     def health():
@@ -88,6 +110,46 @@ def create_app(reader=None, token: str | None = None):
         if not CONTAINER_ID.fullmatch(container_id):
             raise HTTPException(422, "Invalid container ID")
         return run(reader.logs, container_id, tail)
+
+    @app.post("/v1/lab/actions", dependencies=[Depends(authorize)])
+    def local_action(action: LocalAction,
+                     x_mtpanel_signature: str | None = Header(default=None)):
+        # Installed production agents never enable this route by default.
+        if not lab_enabled:
+            raise HTTPException(403, "Local execution disabled")
+        now = int(time.time())
+        if (abs(now - action.issued_at) > 30 or not x_mtpanel_signature
+                or not verify_action(execution_key, action, x_mtpanel_signature)):
+            agent_log.warning("local_action_rejected job=%s reason=auth", action.job_id)
+            raise HTTPException(401, "Invalid or expired signed local action")
+        # Strictly bounded per-process replay cache; the deterministic lab
+        # container name plus labels handles replay after an agent restart.
+        for key, moment in list(seen.items()):
+            if now - moment > 60:
+                del seen[key]
+        if action.nonce in seen:
+            agent_log.warning("local_action_rejected job=%s reason=replay", action.job_id)
+            raise HTTPException(409, "Local action replay")
+        if len(seen) >= 2048:
+            raise HTTPException(503, "Local execution replay cache full")
+        seen[action.nonce] = now
+        agent_log.info("local_action_requested job=%s draft=%s operation=%s",
+                       action.job_id, action.draft_id, action.operation)
+        try:
+            if action.operation == "deploy":
+                result = writer.deploy(action.job_id, action.draft_id, action.manifest)
+            else:
+                result = writer.lifecycle(action.job_id, action.draft_id,
+                                          action.operation)
+            agent_log.info("local_action_finished job=%s status=%s",
+                           action.job_id, result.get("status", "complete"))
+            return {"data": result}
+        except ActionDenied as exc:
+            agent_log.warning("local_action_denied job=%s reason=policy", action.job_id)
+            raise HTTPException(409, str(exc)) from exc
+        except DockerError as exc:
+            agent_log.error("local_action_failed job=%s reason=docker", action.job_id)
+            raise HTTPException(503, "Local lab Docker operation failed") from exc
 
     return app
 
