@@ -1,3 +1,11 @@
+## MT Panel-only staged activation and rollback tooling
+
+- Added explicit `scripts/promote-vps.py --check|--activate|--rollback` with exact stage/backup paths and mandatory confirmation flags for changes.
+- Activation stops only the two MT Panel systemd units, snapshots SQLite and configuration, retains previous root-owned application files, switches a tested stage, then validates module imports, health and unauthenticated authorization boundaries.
+- Automatic recovery is attempted on failed activation; manual rollback is possible even when current MT Panel services are unhealthy, and backs up the current database before restoring the previous SQLite snapshot.
+- The command **never** installs Docker, touches existing proxy/Tailscale Serve routes, or changes unrelated systemd units.
+- Still pilot-grade: production rollout requires explicit operator review, database backup validation and a brief MT Panel maintenance window. This code has not been run against the user's VPS by the assistant.
+
 ## Existing VPS upgrade staging and status (development)
 
 - Added `scripts/vps-status.py --check` for read-only verification of the installed control-plane/agent identities, local bindings and private HTTPS origin without leaking the agent token.
