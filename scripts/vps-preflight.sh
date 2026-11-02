@@ -26,8 +26,9 @@ for command in git tar systemctl ss; do
   fi
 done
 
-if ! python3 -m venv --help >/dev/null 2>&1; then
-  echo "FAIL: python3-venv is unavailable." >&2
+if ! python3 -m venv --help >/dev/null 2>&1 ||
+   ! python3 -m ensurepip --version >/dev/null 2>&1; then
+  echo "FAIL: Python venv/ensurepip support missing. On Ubuntu: apt install python3-venv." >&2
   exit 1
 fi
 if ! command -v docker >/dev/null 2>&1; then
