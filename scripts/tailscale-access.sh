@@ -48,6 +48,10 @@ serve_status="$(tailscale serve status --json 2>/dev/null || true)"
 if printf '%s' "$serve_status" | grep -q '8443'; then
   fail "Tailscale Serve already uses/mentions port 8443. Inspect 'tailscale serve status' first."
 fi
+funnel_status="$(tailscale funnel status 2>/dev/null || true)"
+if printf '%s' "$funnel_status" | grep -q '8443'; then
+  fail "Tailscale Funnel already uses/mentions port 8443. Do not override a public route."
+fi
 if ss -H -lnt | awk '{print $4}' | grep -Eq ':8443$'; then
   fail "TCP port 8443 already has a listener; inspect 'ss -lntp' first."
 fi
