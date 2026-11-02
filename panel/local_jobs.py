@@ -80,7 +80,7 @@ class LocalJobs:
                *, execute: bool = False) -> dict:
         if not KEY.fullmatch(key):
             raise RegistryError("Idempotency key must be 16-96 safe characters")
-        if not HEX.fullmatch(local_server_id):
+        if execute and not HEX.fullmatch(local_server_id):
             raise RegistryError("Explicit local server ID must be configured", 503)
         now = int(time.time())
         with self.registry.connect() as db:
@@ -94,8 +94,12 @@ class LocalJobs:
             """, (draft_id, owner)).fetchone()
             if row is None:
                 raise RegistryError("Draft not found", 404)
-            if row["server_id"] != local_server_id:
+            if execute and row["server_id"] != local_server_id:
                 raise RegistryError("Draft must be assigned to the explicitly configured local server", 409)
+            # Dry-run mode works for an unassigned draft even when the lab
+            # execution service is disabled; it can never be claimed until
+            # an actual local host has been explicitly configured.
+            bound_server = row["server_id"] or "0" * 32
             try:
                 manifest = ServiceDraft.model_validate_json(row["manifest_json"])
             except ValueError as exc:
@@ -109,7 +113,7 @@ class LocalJobs:
             if existing is not None:
                 if (existing["draft_id"] != draft_id
                         or existing["manifest_hash"] != digest
-                        or existing["local_server_id"] != local_server_id
+                        or existing["local_server_id"] != bound_server
                         or bool(existing["requested_execute"]) != bool(execute)):
                     # Never reuse an idempotency key for a different request.
                     raise RegistryError("Idempotency key already used for a different request", 409)
@@ -119,7 +123,7 @@ class LocalJobs:
                 (id,owner,draft_id,local_server_id,idempotency_key,
                  manifest_json,manifest_hash,state,requested_execute,attempt,created_at,updated_at)
                 VALUES (?,?,?,?,?,?,?,?,?,0,?,?)""",
-                (job_id, owner, draft_id, local_server_id, key,
+                (job_id, owner, draft_id, bound_server, key,
                  manifest_json, digest, state, int(execute), now, now))
             self._event(db, job_id, owner, state, "requested_" + state.lower(), now)
             return self._public(db.execute(
