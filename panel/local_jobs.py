@@ -201,6 +201,55 @@ class LocalJobs:
                 "manifest": ServiceDraft.model_validate_json(row["manifest_json"]),
             }
 
+    def recovery_target(self, owner: str, job_id: str,
+                        local_server_id: str) -> dict:
+        """Return a scoped target without releasing a lease or inspecting Docker."""
+        with self.registry.connect() as db:
+            row = db.execute("""SELECT id,draft_id,state,local_server_id,lease_until
+                FROM local_deployment_jobs WHERE id=? AND owner=?""",
+                (job_id, owner)).fetchone()
+        if row is None:
+            raise RegistryError("Job not found", 404)
+        if row["local_server_id"] != local_server_id:
+            raise RegistryError("Job is not bound to the configured local lab host", 409)
+        return {"job_id": row["id"], "draft_id": row["draft_id"],
+                "state": row["state"],
+                "lease_expired": (row["state"] == "RUNNING"
+                                  and row["lease_until"] is not None
+                                  and row["lease_until"] < int(time.time()))}
+
+    def record_recovery(self, owner: str, job_id: str, local_server_id: str,
+                        observation: str) -> dict:
+        """Persist one explicit observation but NEVER unlock or re-run a host.
+
+        A missing/stopped candidate, including its labels, does not prove
+        an older write never happened. Review remains operator-blocking.
+        """
+        valid = {"absent", "stopped", "running_healthy", "running_unhealthy",
+                 "running_starting", "running_unknown"}
+        if observation not in valid:
+            raise RegistryError("Unsupported reconciliation observation")
+        now = int(time.time())
+        with self.registry.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("""SELECT * FROM local_deployment_jobs
+                WHERE id=? AND owner=? AND local_server_id=?""",
+                (job_id, owner, local_server_id)).fetchone()
+            if row is None:
+                raise RegistryError("Job not found", 404)
+            if row["state"] not in ("RUNNING", "NEEDS_REVIEW"):
+                raise RegistryError("Only running/unresolved lab jobs can be reconciled", 409)
+            if (row["state"] == "RUNNING" and row["lease_until"] is not None
+                    and row["lease_until"] >= now):
+                raise RegistryError("Job lease still active; concurrent reconciliation denied", 409)
+            db.execute("""UPDATE local_deployment_jobs SET state='NEEDS_REVIEW',
+                lease_token=NULL,lease_until=NULL,error_code='operator_review_required',
+                updated_at=? WHERE id=?""", (now, job_id))
+            self._event(db, job_id, owner, "NEEDS_REVIEW",
+                        "reconcile_" + observation, now)
+            return self._public(db.execute(
+                "SELECT * FROM local_deployment_jobs WHERE id=?", (job_id,)).fetchone())
+
     def finish(self, owner: str, job_id: str, token: str, state: str,
                code: str = "completed") -> dict:
         if state not in ("HEALTHY", "ROLLED_BACK", "FAILED", "NEEDS_REVIEW"):
