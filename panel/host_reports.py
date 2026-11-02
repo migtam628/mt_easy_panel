@@ -26,6 +26,17 @@ class HostReports:
                     sequence INTEGER NOT NULL,
                     recorded_at INTEGER NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS host_report_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    server_id TEXT NOT NULL REFERENCES servers(id),
+                    sequence INTEGER NOT NULL,
+                    recorded_at INTEGER NOT NULL,
+                    disk_free_percent REAL NOT NULL,
+                    uptime_seconds INTEGER NOT NULL,
+                    UNIQUE(server_id, sequence)
+                );
+                CREATE INDEX IF NOT EXISTS idx_host_report_history_recent
+                    ON host_report_history(server_id, id DESC);
             """)
 
     def get(self, owner: str, server_id: str) -> dict:
@@ -45,6 +56,25 @@ class HostReports:
             return {"server_id": server_id, "state": "recent" if age <= 180 else "stale",
                     "received_at": row["recorded_at"], "sequence": row["sequence"],
                     "snapshot": json.loads(row["snapshot_json"])}
+
+    def history(self, owner: str, server_id: str, limit: int = 96) -> dict:
+        if not 1 <= limit <= 200:
+            raise RegistryError("History limit must be 1-200")
+        with self.registry.connect() as db:
+            row = db.execute("SELECT status FROM servers WHERE id=? AND owner=?",
+                             (server_id, owner)).fetchone()
+            if row is None:
+                raise RegistryError("Server not found", 404)
+            if row["status"] != "paired":
+                return {"server_id": server_id, "state": "not_connected", "samples": []}
+            records = db.execute("""
+                SELECT recorded_at, disk_free_percent, uptime_seconds
+                  FROM host_report_history WHERE server_id=?
+              ORDER BY id DESC LIMIT ?
+            """, (server_id, limit)).fetchall()
+        return {"server_id": server_id, "state": "history" if records else "no_samples",
+                "samples": [dict(entry) for entry in reversed(records)],
+                "metric": "disk_free_percent", "signed_reports_only": True}
 
     def ingest(self, server_id: str, sequence: int, timestamp: int,
                signature: str, snapshot: HostSnapshot) -> dict:
@@ -74,6 +104,21 @@ class HostReports:
                       snapshot_json=excluded.snapshot_json,
                       sequence=excluded.sequence,recorded_at=excluded.recorded_at""",
                        (server_id, snapshot.model_dump_json(), sequence, now))
+            free_percent = round(
+                100.0 * snapshot.disk_free_bytes / snapshot.disk_total_bytes, 1
+            )
+            db.execute("""INSERT INTO host_report_history
+                (server_id, sequence, recorded_at, disk_free_percent, uptime_seconds)
+                VALUES (?,?,?,?,?)""",
+                (server_id, sequence, now, free_percent, snapshot.uptime_seconds))
+            # Keep up to 288 most recent signed records per registered server.
+            # The bound applies atomically with each validated report.
+            db.execute("""DELETE FROM host_report_history
+                WHERE server_id=?
+                  AND id NOT IN (
+                    SELECT id FROM host_report_history WHERE server_id=?
+                    ORDER BY id DESC LIMIT 288
+                  )""", (server_id, server_id))
             db.execute("""UPDATE agent_identities SET last_sequence=?,last_seen=?
                           WHERE server_id=?""", (sequence, now, server_id))
         return {"server_id": server_id, "status": "accepted"}
