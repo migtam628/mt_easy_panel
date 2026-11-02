@@ -1,3 +1,12 @@
+## Tailscale-only VPS access update (v0.2.1-dev)
+
+- Added `scripts/tailscale-access.sh --check` to identify the node's actual Tailscale HTTPS hostname and refuse Serve/Funnel port 8443 conflicts.
+- Added explicit `--prepare` that atomically configures `PANEL_PUBLIC_ORIGIN=https://<node>.<tailnet>.ts.net:8443` and `PANEL_COOKIE_SECURE=true` without revealing or changing agent credentials.
+- Replaced the VPS SSH browser-tunnel guide with persistent private `tailscale serve --bg --https=8443 http://127.0.0.1:8086`.
+- Preserves existing Tailscale port 443 routes, public HTTP/HTTPS proxies, Docker and all containers.
+- Tailscale Serve activation remains a separate, user-approved VPS command; no live server changes have been made here.
+- Added fake-Tailscale CLI tests for hostname validation and port-conflict detection.
+
 ## v0.2.1-dev — Ubuntu VPS systemd pilot (manual install only)
 
 - Added read-only VPS compatibility and port preflight for Python 3.14 / Docker Engine 29.
