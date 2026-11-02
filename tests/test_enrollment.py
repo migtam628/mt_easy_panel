@@ -71,7 +71,7 @@ def test_owner_origin_and_one_time_enrollment(tmp_path):
         assert code not in str(db.execute("SELECT * FROM enrollment_invites").fetchall())
 
     key, claim = signed_claim(server, code)
-    assert c.post("/api/agents/enroll", json={**claim, "signature": b64(b"bad")}).status_code == 401
+    assert c.post("/api/agents/enroll", json={**claim, "signature": b64(bytes(64))}).status_code == 401
     assert c.post("/api/agents/enroll", json={**claim, "code": "A" * 43}).status_code == 401
     accepted = c.post("/api/agents/enroll", json=claim)
     assert accepted.status_code == 200, accepted.text
