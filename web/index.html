@@ -104,6 +104,14 @@
         <input id="draft-port" required type="number" min="1" max="65535" placeholder="Container port">
         <button type="submit" class="button primary">Save draft</button>
       </form>
+      <h3>Compose compatibility check</h3>
+      <p class="muted small">Strict limited preview only. No application will deploy. Do not paste secrets.</p>
+      <form id="compose-form" class="resource-form">
+        <label for="compose-source">Compose YAML</label>
+        <textarea id="compose-source" rows="7" maxlength="32768" required placeholder="services:&#10;  web:&#10;    image: registry/image@sha256:...&#10;    read_only: true&#10;    expose: [8080]"></textarea>
+        <button class="button ghost" type="submit">Validate only</button>
+      </form>
+      <pre id="compose-result" class="compose-result" aria-live="polite">No Compose configuration checked.</pre>
       <p class="error" id="project-error" role="alert"></p>
     </div>
   </dialog>
