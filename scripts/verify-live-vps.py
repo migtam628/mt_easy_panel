@@ -162,6 +162,25 @@ def main() -> None:
     parser.add_argument("--check", action="store_true", required=True)
     parser.add_argument("--expected-version", default="0.3.5-dev")
     args = parser.parse_args()
+
+    # This command is deliberately POST-PROMOTION only. A common operator
+    # mistake is invoking it immediately after --stage: the old live server
+    # will naturally lack new routes and schema. Report one unambiguous
+    # "not active" state before performing release-specific checks.
+    try:
+        code, payload = get_local(8086, "/api/health")
+    except (OSError, ValueError, TimeoutError):
+        code, payload = None, None
+    if (code == 200 and isinstance(payload, dict)
+            and payload.get("ok") is True and payload.get("service") == "mt-panel"
+            and payload.get("version") != args.expected_version):
+        print("NOT ACTIVE: running MT Panel version " + str(payload.get("version")))
+        print("STAGED RELEASE NOT YET PROMOTED: expected " + args.expected_version)
+        print("Use scripts/promote-vps.py --check --stage EXACT_DIRECTORY")
+        print("Then activate the SAME staged candidate with explicit confirmation.")
+        print("Run this post-promotion verifier only after activation succeeds.")
+        raise SystemExit(2)
+
     errors = []
     errors.extend(check_http(args.expected_version))
     errors.extend(check_database())
