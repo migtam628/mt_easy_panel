@@ -27,6 +27,7 @@ For VPS browser access, use **Tailscale Serve over private HTTPS on port 8443** 
 - [Full technical specification, architecture, target schema, API, security and roadmap](docs/TECHNICAL_SPEC.md)
 - [Pilot deployment and safety guide](docs/DEPLOYMENT.md)
 - [Ubuntu 26.04 VPS installer, preflight and activation runbook](docs/UBUNTU_26_04_VPS_PILOT.md)
+- [Existing VPS status and staged-only upgrade guide](docs/EXISTING_VPS_UPGRADE.md)
 - [Architecture decision records](docs/ARCHITECTURE_DECISIONS.md)
 - [Next implementation backlog and release gates](docs/PHASE2_BACKLOG.md)
 - [Release notes](RELEASE_NOTES.md)
@@ -85,6 +86,19 @@ See [competitive research and implementation plan](docs/COMPETITIVE_RESEARCH_AND
 ## Ubuntu 26.04 systemd pilot
 
 For a busy VPS, follow the [isolated installation runbook](docs/UBUNTU_26_04_VPS_PILOT.md). It begins with `bash scripts/install-vps.sh --check` and `bash scripts/tailscale-access.sh --check` (both read-only); installation requires explicit `--install`, and the HTTPS origin must be prepared with `bash scripts/tailscale-access.sh --prepare` before starting services. Services are **not started** automatically. The code is installed under `/opt/mt-panel`, separate from the GitHub checkout, with distinct Unix users. The dashboard stays off Docker's group, the agent has root-equivalent Docker group access, and both bind loopback-only without touching 80/443. Do not use this pilot as an Internet-facing production admin panel.
+
+## Updates to an already installed VPS
+
+Do **not** rerun the first-install script on an existing systemd installation.
+To inspect running MT Panel services safely, run:
+`python3 scripts/vps-status.py --check`.
+After `git pull --ff-only origin main`, use
+`bash scripts/upgrade-vps.sh --check` and then
+`bash scripts/upgrade-vps.sh --stage` to build/test an isolated candidate.
+The staging script never switches code, modifies the live database, or
+restarts services; see the
+[existing VPS upgrade guide](docs/EXISTING_VPS_UPGRADE.md).
+Access the dashboard over the HTTPS Tailscale Serve endpoint, not a public port.
 
 ## Security boundary
 
