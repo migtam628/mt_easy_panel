@@ -88,6 +88,7 @@ def test_owner_origin_and_one_time_enrollment(tmp_path):
     assert c.post(ping, json=signed_ping(server, other_key, 2)).status_code == 401
     assert c.post(ping, json=signed_ping(server, key, 2)).status_code == 200
     state = c.get("/api/catalog/servers/" + server + "/identity").json()["data"]
+    assert state["heartbeat_state"] == "recent"
     assert state["identity"]["last_sequence"] == 2
     assert state["identity"]["last_seen"] is not None
     assert "public_key" not in str(state)
@@ -222,3 +223,24 @@ def test_cli_never_keeps_identity_after_failed_invitation(tmp_path, monkeypatch)
         cli.enroll("https://node.tailnet.ts.net:8443", "a" * 32, private)
     assert not private.exists()
     assert not list(tmp_path.glob("*.pending"))
+
+
+def test_status_never_conflates_identity_and_connectivity(tmp_path):
+    c, db, server = setup(tmp_path)
+    identity_url = "/api/catalog/servers/" + server + "/identity"
+    assert c.get(identity_url).json()["data"]["heartbeat_state"] == "not_enrolled"
+    code = c.post("/api/catalog/servers/" + server + "/invites",
+                  headers=ORIGIN).json()["data"]["enrollment_code"]
+    key, claim = signed_claim(server, code)
+    assert c.post("/api/agents/enroll", json=claim).status_code == 200
+    assert c.get(identity_url).json()["data"]["heartbeat_state"] == "never_seen"
+    assert c.post("/api/agents/" + server + "/heartbeat",
+                  json=signed_ping(server, key)).status_code == 200
+    assert c.get(identity_url).json()["data"]["heartbeat_state"] == "recent"
+    with sqlite3.connect(db) as connection:
+        connection.execute("UPDATE agent_identities SET last_seen=? WHERE server_id=?",
+                           (int(time.time()) - 3600, server))
+    assert c.get(identity_url).json()["data"]["heartbeat_state"] == "stale"
+    assert c.post("/api/catalog/servers/" + server + "/revoke",
+                  headers=ORIGIN).status_code == 200
+    assert c.get(identity_url).json()["data"]["heartbeat_state"] == "revoked"
