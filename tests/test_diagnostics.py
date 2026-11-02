@@ -116,7 +116,6 @@ def test_demo_is_explicit_and_malformed_capacity_never_healthy(tmp_path):
     assert host_capacity({"disk_total_bytes":100,"disk_free_bytes":101})["disk_warning"] == "not_reported"
     assert host_capacity({"disk_total_bytes":100,"disk_free_bytes":10})["disk_warning"] == "warning"
     assert host_capacity({"disk_total_bytes":100,"disk_free_bytes":20})["disk_warning"] == "none"
-    assert summarize_containers("no data") if False else True
     import pytest
     with pytest.raises(ValueError):
         summarize_containers({"unexpected": "object"})
