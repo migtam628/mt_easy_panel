@@ -75,7 +75,7 @@ PANEL_COOKIE_SECURE=true
 
 It does not display the agent token, configure or reset any Tailscale Serve rules, or start services. If 8443 is already configured, it stops and requests inspection instead of overwriting an unrelated route. Do not replace the real hostname with a guess.
 
-## 3. Offline admin bootstrap
+## 4. Offline admin bootstrap
 
 ```bash
 cd /opt/mt-panel

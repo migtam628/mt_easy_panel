@@ -39,19 +39,29 @@ For an environment without Docker, edit `.env` and set `AGENT_DEMO_MODE=true`. T
 
 Access from the **server itself**: `http://127.0.0.1:8086`.
 
-### Connecting from your workstation over Tailscale
+### Tailscale-only browser access (preferred on VPS)
 
-Run an SSH tunnel from your own machine to the test host's Tailscale hostname or IP:
+Keep both Python processes on loopback. Run `bash scripts/tailscale-access.sh --check`
+to derive the actual Tailscale `*.ts.net` hostname and detect conflicts on
+port 8443. For an installed systemd pilot, run `--prepare` before starting
+the services; this configures `PANEL_PUBLIC_ORIGIN=https://<actual-hostname>:8443`
+and `PANEL_COOKIE_SECURE=true` without altering the secret token.
+
+After the local health endpoint responds, explicitly enable private Serve:
 
 ```bash
-ssh -N -L 8086:127.0.0.1:8086 youruser@your-test-host-tailnet-ip
+tailscale serve --bg --https=8443 http://127.0.0.1:8086
+tailscale serve status
 ```
 
-Then open `http://127.0.0.1:8086` on that workstation. This avoids public ingress and keeps browser origin/cookie configuration simple. Note that the local tunnel port must be free.
+From a Mac connected to the same tailnet, visit the **HTTPS** URL shown by
+`tailscale serve status`. You do not need to use SSH tunneling or public ports.
+This separate 8443 listener leaves existing Tailscale 443 endpoints untouched.
+Never enable Funnel for MT Panel or run `tailscale serve reset` on a shared host.
+Use Tailscale Grants/ACLs to restrict 8443 to approved devices or users.
 
-### Optional later HTTPS access
-
-If publishing over a private HTTPS gateway, configure `PANEL_PUBLIC_ORIGIN=https://your-hostname` and `PANEL_COOKIE_SECURE=true`, and bind the application to a **trusted private interface** only. Ensure the reverse proxy and network firewall restrict access, and do not put the privileged agent behind a public proxy. Tailscale Grants should restrict access to approved users/devices. Do not simply change `PANEL_BIND=0.0.0.0` on a live VPS.
+For the full Ubuntu 26.04 first-install sequence and rollback instructions, see
+[Ubuntu 26.04 VPS pilot](UBUNTU_26_04_VPS_PILOT.md).
 
 ## Existing VPS service preservation
 

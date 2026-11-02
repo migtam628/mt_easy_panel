@@ -20,7 +20,7 @@ Dashboard: `http://127.0.0.1:8086` (local server only). For demo mode without Do
 
 On macOS, ensure Docker Desktop is installed and running for live Docker inventory. MT Panel now checks both `/var/run/docker.sock` and `~/.docker/run/docker.sock`. If needed, specify a local Unix socket with `DOCKER_SOCKET_PATH=/absolute/path/to/docker.sock` in `.env`. Run `python3 scripts/doctor.py` for non-destructive connectivity diagnostics. The launcher selects `.venv/bin/python3` automatically if it exists.
 
-To view remotely, use an SSH local port forward over Tailscale (details in [Deployment Guide](docs/DEPLOYMENT.md)). Both processes bind to loopback by default and do **not** take over 80/443 or replace Caddy.
+For VPS browser access, use **Tailscale Serve over private HTTPS on port 8443** (no SSH tunnel, public IP or Tailscale Funnel). See the [Ubuntu 26.04 runbook](docs/UBUNTU_26_04_VPS_PILOT.md). Both processes bind to loopback and do not take over Caddy or the existing Tailscale HTTPS port 443.
 
 ## Documentation
 
@@ -78,13 +78,13 @@ mt-panel/
 
 After logging in, open **Servers** to create a local server *record* (unpaired) and **Projects** to create a project. Select **Manage** on a project to add environments and save image deployment drafts. A draft requires an image reference pinned to a complete sha256 digest, an internal container port, and conservative default resources. No actual Docker action is performed. The server registry does not accept SSH keys, host addresses or arbitrary URLs. The **Compose preview** in project management accepts only 1-4 digest-pinned, read-only services with internal exposed ports. Rejecting unsupported fields is intentional. It does not create containers, perform builds, or run Compose.
 
-For the VPS upgrade: stop the running development server, run `git pull --ff-only origin main`, install requirements using `.venv/bin/python -m pip install -r requirements.txt`, optionally install dev requirements and run `bash scripts/test.sh`, then restart. Existing `.env` and `state/` remain local; SQLite adds the new tables without overwriting administrators. Keep ports loopback-only and use the SSH/Tailscale tunnel.
+For the VPS upgrade: stop the running development server, run `git pull --ff-only origin main`, install requirements using `.venv/bin/python -m pip install -r requirements.txt`, optionally install dev requirements and run `bash scripts/test.sh`, then restart. Existing `.env` and `state/` remain local; SQLite adds the new tables without overwriting administrators. Keep MT Panel's ports loopback-only and use the separate Tailscale Serve HTTPS endpoint (port 8443) for browser access.
 
 See [competitive research and implementation plan](docs/COMPETITIVE_RESEARCH_AND_PLAN.md).
 
 ## Ubuntu 26.04 systemd pilot
 
-For a busy VPS, follow the [isolated installation runbook](docs/UBUNTU_26_04_VPS_PILOT.md). It begins with `bash scripts/install-vps.sh --check` (read-only); installation requires explicit `--install`. Services are **not started** automatically. The code is installed under `/opt/mt-panel`, separate from the GitHub checkout, with distinct Unix users. The dashboard stays off Docker's group, the agent has root-equivalent Docker group access, and both bind loopback-only without touching 80/443. Do not use this pilot as an Internet-facing production admin panel.
+For a busy VPS, follow the [isolated installation runbook](docs/UBUNTU_26_04_VPS_PILOT.md). It begins with `bash scripts/install-vps.sh --check` and `bash scripts/tailscale-access.sh --check` (both read-only); installation requires explicit `--install`, and the HTTPS origin must be prepared with `bash scripts/tailscale-access.sh --prepare` before starting services. Services are **not started** automatically. The code is installed under `/opt/mt-panel`, separate from the GitHub checkout, with distinct Unix users. The dashboard stays off Docker's group, the agent has root-equivalent Docker group access, and both bind loopback-only without touching 80/443. Do not use this pilot as an Internet-facing production admin panel.
 
 ## Security boundary
 

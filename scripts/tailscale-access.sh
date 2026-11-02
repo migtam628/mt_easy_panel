@@ -10,7 +10,7 @@ Usage:
   bash scripts/tailscale-access.sh --prepare  # Change MT Panel origin/cookie only
 
 Tailscale Serve HTTPS port 8443 -> http://127.0.0.1:8086.
-Never uses Funnel, public TCP listeners, or an SSH tunnel.
+Never enables Funnel, public TCP listeners, or an SSH tunnel.
 Does not configure Serve, stop services or alter any existing Serve port.
 HELP
 }
