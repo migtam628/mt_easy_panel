@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.9-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.10-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -342,6 +342,46 @@ preserve the printed rollback backup.
 write path still requires a disposable host and its independent enable
 settings. See [Phase A guide](docs/PHASE_A_LOCAL_EXECUTION.md) and
 [existing VPS upgrade guide](docs/EXISTING_VPS_UPGRADE.md).
+
+## v0.3.10-dev — Disposable real-Docker integration validation
+
+An isolated GitHub-hosted **ephemeral Linux runner** now exercises the
+allowlisted lab Docker writer against a **real** Docker Engine. The test
+builds tiny baked-in HEALTHCHECK fixtures, publishes them only to a
+temporary loopback registry on port 15000, pins the resulting **registry
+digest**, and confirms:
+
+- A new container becomes HEALTHY with network mode `none`, no published
+  ports, no volumes, read-only root filesystem, non-root UID and removed
+  capabilities.
+- A deliberately unhealthy candidate is **stopped and independently
+  re-inspected** before reporting `ROLLED_BACK`; the separately healthy
+  candidate remains running.
+- A foreign same-name container cannot be adopted, started or changed.
+- The independently signed lab agent action succeeds once and the
+  persistent SQLite nonce blocks replay, including after a new agent
+  instance is created.
+
+The real engine uncovered a timeout defect: Docker's graceful stop can
+outlast the previous four-second Unix request timeout. Only the fixed
+allowlist `POST /containers/{owned_candidate}/stop` now receives a
+longer *bounded* timeout; GET-only inventory retains its existing
+four-second deadline. The stop result must also be verified with a
+second exact-ownership inspect before rollback is reported. Network,
+proxy and credential boundaries are unchanged.
+
+**No Docker integration is run by staging on the production VPS.** The
+disposable integration job runs only on GitHub-hosted ephemeral runners
+when pushing reviewed `main`. Local `pytest` intentionally skips it
+without the GitHub runner identity and explicit ephemeral test flag.
+This is not a production cutover, remote deployment test, manual
+reconciliation release, or review of every Linux host configuration.
+
+Use `bash scripts/vps-test-sync.sh --stage` only to stage the updated
+dashboard on the installed VPS. Activation is still separately approved
+and must keep `lab_execution_enabled=false` in both panel and agent.
+See [lab integration ADR](docs/ARCHITECTURE_DECISIONS.md) and
+[Phase A test guide](docs/PHASE_A_LOCAL_EXECUTION.md).
 
 ## Security boundary
 

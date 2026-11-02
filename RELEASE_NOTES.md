@@ -1,3 +1,30 @@
+## v0.3.10-dev — First successful real Docker Engine lab integration
+
+- Added a strictly gated, **disposable GitHub-hosted runner** integration
+  test. No self-hosted CI runner, production VPS, secrets, or existing
+  deployment targets are used.
+- Built immutable digest-pinned fixture images with healthy/unhealthy
+  Docker HEALTHCHECKs through a temporary loopback registry (port 15000).
+- Confirmed against a real Docker Engine: isolated health-gated container
+  creation, candidate stop on unhealthy state, no host network/ports/
+  mounts, no capabilities, non-root user, and continued operation of
+  unrelated healthy candidates.
+- Confirmed exact ownership enforcement against foreign same-name
+  containers and separate HMAC/SQLite replay protection over the real
+  agent write endpoint.
+- Fixed a real-world Docker `stop` response timeout. The constrained
+  stop path now uses a longer bounded socket deadline while read-only
+  reads keep their short existing timeout.
+- Added **post-stop re-inspection**: if the candidate still runs or is
+  missing/unknown, the agent refuses to claim rollback, preserving
+  NEEDS_REVIEW recovery semantics.
+- Added regression tests for misleading stop acknowledgements and
+  missing candidate states; documented test-host trust boundaries.
+- This does not enable local Docker writes on the installed production
+  VPS, change Caddy or Tailscale, or perform live service cutovers.
+  Real previous-digest rollback and manual proof-based lock resolution
+  remain incomplete.
+
 ## v0.3.9-dev — Fail-closed recovery inspections and safe staging sync
 
 - Added allowlisted lab candidate GET inspection: validates exact job/draft

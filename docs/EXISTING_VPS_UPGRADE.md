@@ -270,3 +270,36 @@ verifier fails closed if either is true or unavailable. **Do not enable
 `PANEL_LOCAL_EXECUTION_ENABLED` or `AGENT_LOCAL_EXECUTION_ENABLED`
 on the existing production VPS.** This release has not been validated
 for write-enabled production operations.
+
+## v0.3.10-dev — Stage/test UI update without enabling Docker writes
+
+The first real Docker Engine integration test now runs **only** on an
+ephemeral GitHub-hosted CI runner, not on this production VPS.
+A production `bash scripts/vps-test-sync.sh --stage` performs normal
+offline/staged Python and web checks while skipping the isolated Docker
+integration tests. Only stage a commit with all GitHub CI checks green.
+
+On the installed VPS:
+
+```bash
+cd ~/mt_easy_panel
+bash scripts/vps-test-sync.sh --check
+bash scripts/vps-test-sync.sh --stage
+```
+
+The second command updates the source checkout and stages/reuses the
+exact commit without changing the active version. Follow **only** its
+printed exact-SHA preflight/activation commands after review. This
+restarts only MT Panel services and preserves a rollback backup.
+After promotion, check:
+
+```bash
+python3 scripts/verify-live-vps.py --check --expected-version 0.3.10-dev
+python3 scripts/vps-status.py --check
+```
+
+Both agent and panel must have `lab_execution_enabled=false`.
+**Never** enable local lab writes, Docker proxy access, reverse proxy
+changes, or ports 80/443 takeover on this production VPS to test this
+candidate. A successful CI run alone does not authorize production
+Docker execution.

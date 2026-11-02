@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.9-dev
+# Phase 2 Build Backlog — MT Panel v0.3.10-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -89,3 +89,18 @@ or Compose. Existing production VPS must not enable lab execution.
 **Next:** real disposable Linux Docker fault-injection integration; add a
 separately audited, proof-backed manual lock-release workflow; design
 service revision handoff with actual previous-digest rollback.
+
+## v0.3.10-dev — Real Docker Engine CI safety evidence
+
+- Dedicated GitHub-hosted ephemeral runner tests real constrained Engine
+  create/start/stop/inspect with registry-digest-pinned fixtures.
+- Verified health and failed-candidate rollback without affecting a
+  healthy sibling; foreign same-name candidates are refused.
+- Real Docker stop timeout identified and fixed with bounded wait,
+  followed by mandatory post-stop verification.
+- Replay-safe signed agent actions verified with real Docker.
+
+**Still blocked:** production execution on mttech-vps, true traffic
+cutover/previous-digest rollback, operator proof-backed host unlock,
+real disposable Tailscale VM/systemd confinement, remote Docker writes
+and general Git/Compose/DB deployments.

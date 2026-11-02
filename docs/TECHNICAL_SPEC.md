@@ -1,7 +1,7 @@
 # MT Panel — Technical Product Specification
 
-**Version:** 0.3.9-dev (Phase A lab-local candidate execution prototype)  
-**Project status:** Current VPS read-only pilot and lab-only Phase A execution prototype; the new write path has not been verified on disposable real Docker hardware.  
+**Version:** 0.3.10-dev (Phase A disposable Docker integration validation)  
+**Project status:** Current VPS read-only pilot; the isolated write path is now exercised on ephemeral CI Docker Engine but has not been authorized on the production VPS or a dedicated Tailscale lab VM.  
 **Ownership:** Independently written implementation; not an Easypanel fork, copy of its code, or compatible proprietary API.  
 **Architecture:** One unprivileged control plane, one constrained Docker inventory agent per host.  
 **Deployment safety:** Initial release is read-only. No destructive or write-capable Docker routes exist.
@@ -273,3 +273,15 @@ an uncertain write, releases the per-host fence, or changes Docker.
 This is not automatic recovery, multi-server execution or actual service
 revision rollback. VPS Git staging synchronization remains operator-run,
 never an unattended production deployment system.
+
+## 16. v0.3.10-dev — Real Docker Engine safety test boundary
+
+The allowlisted agent write adapter is exercised against Docker Engine
+on GitHub-hosted disposable Ubuntu runners using local immutable-digest
+fixture images. Tests confirm health-gated create/start, no network or
+host ports, foreign-container refusal, signed nonce replay protection
+and independently verified unhealthy-candidate stop. GET-only reads
+retain their short timeout, while only STOP receives a bounded longer
+timeout. The real integration covers candidate isolation **not**
+production service cutover, remote host agent rollout or previous
+digest rollback. The installed VPS remains read-only by default.

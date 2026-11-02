@@ -149,3 +149,33 @@ For safely keeping the *production dashboard* current for testing, run
 only fast-forwards the Git checkout and builds/reuses a tested stage;
 a human still approves exact SHA-pinned activation separately. Never
 set lab execution flags on the production VPS.
+
+## v0.3.10 — Real Engine integration (ephemeral runner)
+
+The dedicated GitHub Actions job `ephemeral-docker-lab` on GitHub-hosted
+Ubuntu runs `tests/integration/test_real_docker_lab.py` only on
+reviewed-main pushes. The test fails closed unless GitHub reports an
+ephemeral hosted Linux runner and the dedicated one-time lab test
+environment flag is present. It does **not** run from normal VPS
+`pytest` or from the panel service.
+
+The harness builds two tiny BusyBox fixtures with baked-in HEALTHCHECKs,
+pushes them to an ephemeral registry exposed solely at
+`127.0.0.1:15000`, pins the resulting immutable registry digest,
+then invokes the real local Unix-socket Docker adapter. Healthy, failed
+and foreign candidate flows are tested, plus signed agent action/replay.
+No existing VPS data, reverse proxies, ports 80/443, or Tailscale
+configuration is used.
+
+A real Docker failure exposed a stop-timeout issue; the lab adapter
+now allows a longer, bounded wait on only STOP, without relaxing the
+GET-only inventory timeout. The agent independently inspects and
+validates ownership/Running=false before marking candidate rollback.
+An unconfirmed stop still requires manual operator review: never retry
+automatically, mark healthy, unlock the host or re-route live traffic.
+
+**Still open:** prove same guarantees on a separately provisioned
+throwaway Tailscale VM with restrictive systemd services; audit complete
+host ownership/fencing on real host failures; design service revisions
+and true previous-image cutover/rollback. The current VPS stays
+read-only.

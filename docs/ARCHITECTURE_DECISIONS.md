@@ -106,3 +106,37 @@ deployments until an operator reviews the candidate externally. This
 deliberate availability tradeoff preserves isolation and prevents unintended
 replay of root-equivalent Docker operations. Existing production workloads
 continue running independently of controller downtime.
+
+## ADR-009 — Real Docker integration uses ephemeral CI, never production
+
+**Status:** Validated disposable-runner experiment, v0.3.10-dev.
+Production Docker writes are **not** approved.
+
+**Context:** Fake Docker fixtures are insufficient to prove actual Engine
+behavior (especially graceful stop timeouts, health state timing and
+digest resolution). A shared production VPS cannot be used to test
+root-equivalent Docker write boundaries safely.
+
+**Decision:** Run an additional, explicitly gated Docker Engine test job
+on GitHub-hosted `ubuntu-latest` runners only after commits reach main.
+The job has read-only repository permissions and no production secrets,
+verifies the hosted-runner environment, and refuses machines with an
+installed MT Panel private environment file. The test harness repeats
+the identity/ephemerality gates, uses a temporary local registry on
+`127.0.0.1:15000`, publishes only disposable fixture images, and creates
+only random `mtpanel-lab-<uuid>` candidates. Cleanup is confined to
+those exact fixture names. The controller and real agent code do **not**
+gain Docker CLI, arbitrary command execution or network control.
+
+An observed Docker stop exceeded the original 4-second HTTP timeout;
+the write adapter now gives only the exact allowlisted stop request a
+bounded longer timeout. Successful rollback requires a subsequent
+ownership-verified inspect reporting `Running=false`. Ambiguity raises
+an error, allowing the control plane to retain the unresolved job fence.
+Control-plane downtime never stops already-running workloads.
+
+**Limits:** This proves the restricted candidate path on a disposable
+CI runner, not production host/kernel policy, independently isolated
+remote enrollment, service revision traffic cutover, volume recovery,
+manual release of unresolved locks, or end-to-end rollback of a
+previous live image. The live VPS remains explicitly write-disabled.
