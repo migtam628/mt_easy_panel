@@ -4,6 +4,7 @@ import json
 import sqlite3
 import time
 import uuid
+from contextlib import contextmanager
 
 VALID_SLUG = re.compile(r"^[a-z][a-z0-9-]{1,47}$")
 
@@ -60,11 +61,19 @@ class Registry:
                     created_at INTEGER NOT NULL, UNIQUE(project_id,slug));
             """)
 
+    @contextmanager
     def connect(self):
         db = sqlite3.connect(self.database, timeout=5)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
-        return db
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     @staticmethod
     def audit(db, owner, action, item_id):
