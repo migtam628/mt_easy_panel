@@ -48,25 +48,76 @@ uses the committed revision, not the current filesystem tree.
 The command prints the **exact stage directory** (for example,
 `/opt/mt-panel-stage.XXXXXXXX`). Record that path. Do not guess the path.
 
-## Activation gate (not implemented by this staging script)
+## Activation of a *verified staged* candidate (operator action)
 
-There is intentionally no automatic promotion to production. The next
-activation procedure needs an explicitly reviewed maintenance window and
-working, verified backups of:
+The activation tool lives in your GitHub checkout as `scripts/promote-vps.py`;
+it is **not** automatically invoked by staging. Its --check mode reads the
+existing systemd/Tailscale security settings, requires both services to be
+healthy, verifies the candidate marker, and makes no changes.
 
-- /var/lib/mt-panel/panel.db (consistent SQLite backup);
-- /etc/mt-panel/mt-panel.env (private; never paste into chat);
-- /opt/mt-panel (the currently running code);
-- both MT Panel systemd unit files.
+For the stage that was tested successfully on Ubuntu 26.04:
 
-The activation workflow must stop **only** mt-panel.service and
-mt-panel-agent.service, switch the code atomically where possible, restart
-those two units, validate the health endpoints and authorization, and provide
-a tested rollback to the previous code/database. No other systemd service or
-Docker workload may be restarted.
+```bash
+cd ~/mt_easy_panel
+python3 scripts/promote-vps.py --check --stage /opt/mt-panel-stage.rjP8TppP
+```
 
-This upgrade stage is a **build-and-test candidate**, not a deploy. Always
-send the stage command's result before using any promotion steps.
+The stage's saved commit is `9d279a6`. It does not automatically include
+more recent GitHub commits; this is intentional so the tested candidate is
+promoted, not untested source.
+
+When approved for a brief, MT Panel-only maintenance interruption:
+
+```bash
+python3 scripts/promote-vps.py --activate \
+  --stage /opt/mt-panel-stage.rjP8TppP \
+  --confirm ACTIVATE_MT_PANEL
+```
+
+**This is a live change**: it stops/restarts `mt-panel.service` and
+`mt-panel-agent.service`, temporarily interrupting the MT Panel dashboard.
+Other Docker containers and host services are not intentionally modified.
+The script snapshots the stopped SQLite database, private environment file,
+and both unit files into a root-only backup under `/opt/mt-panel-backups/`;
+it retains the previous application directory in that backup.
+
+It moves the staged app into `/opt/mt-panel` and verifies Python imports,
+both local health endpoints and unauthenticated HTTP 401 boundaries. If these
+checks fail, it attempts to restore the prior application directory and SQLite
+snapshot and restart the two MT Panel services automatically. **Do not assume
+rollback succeeded without reading the command output and rechecking health.**
+
+After promotion, confirm:
+
+```bash
+python3 scripts/vps-status.py --check
+curl -fsS http://127.0.0.1:8086/api/health
+curl -fsS http://127.0.0.1:8788/health
+tailscale serve status
+```
+
+The browser stays at the existing private Tailscale port 8443 URL.
+
+## Explicit manual rollback
+
+Use the **exact backup path printed by the successful activation**:
+
+```bash
+python3 scripts/promote-vps.py --rollback \
+  --backup /opt/mt-panel-backups/mt-panel-backup.EXACT_ID_FROM_OUTPUT \
+  --confirm ROLLBACK_MT_PANEL
+```
+
+This stops/restarts *only* the two MT Panel units, restores the old code and
+pre-upgrade SQLite snapshot, and preserves the replaced candidate under the
+backup path for inspection. **Database changes made after activation will
+be lost on rollback**; back up any new activity you want to preserve.
+Never guess the backup directory. Avoid this operation if other processes are
+writing the MT Panel SQLite database; use a maintenance period.
+
+The upgrade does not change existing Tailscale Serve routes, credentials,
+systemd unit definitions or other Docker workloads. It does not run Docker
+Compose, install packages system-wide, or reconfigure a proxy.
 
 ## Tailscale-specific notes
 
