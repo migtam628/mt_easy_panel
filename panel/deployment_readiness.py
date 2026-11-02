@@ -35,7 +35,7 @@ class DeploymentReadiness:
             try:
                 manifest = json.loads(row["manifest_json"])
                 image = manifest.get("image") if isinstance(manifest, dict) else None
-                if not isinstance(image, str) or len(image) > 260:
+                if not isinstance(image, str) or len(image) > 320:
                     image = None
             except (ValueError, TypeError):
                 image = None
