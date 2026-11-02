@@ -11,6 +11,9 @@
   be reconciled concurrently.
 - Added `scripts/vps-test-sync.sh` for read-only sync checks or one-command
   fast-forward + idempotent staging without automatic activation.
+- Added an explicit **Save dry-run** button for existing deployment
+  drafts, using the same owner-authenticated, audited DRAFT job API.
+  The browser exposes no queue/run action.
 - Tightened post-promotion checks: refuse to certify production if the
   dashboard or local Docker agent has lab writes enabled or the policy is
   unknown.
