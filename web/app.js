@@ -1,6 +1,6 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
-const state = {view: 'overview', containers: [], overview: null, projectId: null};
+const state = {view: 'overview', containers: [], overview: null, projectId: null, serverId: null};
 const descriptions = {
   overview: ['Infrastructure overview', 'A real-time snapshot of your local Docker host.', 'Container inventory'],
   containers: ['Containers', 'Inspect running and stopped workloads.', 'All containers'],
@@ -78,6 +78,16 @@ function containerRow(c) {
   button.type = 'button'; button.addEventListener('click', () => openLogs(c));
   last.append(button); tr.append(last); return tr;
 }
+function serverRow(x) {
+  const tr = plainRow([x.name, x.status, x.notes || '—',
+    new Date(x.created_at * 1000).toLocaleDateString()]);
+  const td = document.createElement('td');
+  const button = el('button', 'Identity', 'link-button');
+  button.type = 'button';
+  button.addEventListener('click', () => openServer(x));
+  td.append(button); tr.append(td);
+  return tr;
+}
 function projectRow(x) {
   const tr = plainRow([x.name, x.slug, x.server_id ? x.server_id.slice(0,12) : 'Unassigned', x.environment_count]);
   const td = document.createElement('td');
@@ -120,10 +130,8 @@ async function refresh() {
     } else if (view === 'servers') {
       renderStats(null);
       const items = (await api('/api/catalog/servers')).data;
-      tableRows(['Name', 'Connection', 'Notes', 'Created'],
-        items.map(x => plainRow([x.name, 'Not paired', x.notes || '—',
-          new Date(x.created_at * 1000).toLocaleDateString()])));
-      $('table-subtitle').textContent = 'Saved identities only; no SSH connection or host access.';
+      tableRows(['Name', 'Identity', 'Notes', 'Created', 'Actions'], items.map(serverRow));
+      $('table-subtitle').textContent = 'Signed enrollment and heartbeat metadata only; Docker control remains disabled.';
     } else if (view === 'projects') {
       renderStats(null);
       const items = (await api('/api/catalog/projects')).data;
@@ -208,6 +216,59 @@ async function submitResource(event) {
     await refresh();
   } catch (error) { $('resource-error').textContent = error.message; }
 }
+async function refreshServerIdentity() {
+  if (!state.serverId) return;
+  const details = (await api('/api/catalog/servers/' + encodeURIComponent(state.serverId) + '/identity')).data;
+  const holder = $('server-identity');
+  holder.replaceChildren();
+  const identity = details.identity;
+  holder.append(el('div', 'State: ' + details.status, 'config-item'));
+  if (identity) {
+    holder.append(el('div', 'Key fingerprint: ' + identity.fingerprint, 'config-item mono'));
+    holder.append(el('div', 'Last signed heartbeat: ' +
+      (identity.last_seen ? new Date(identity.last_seen * 1000).toLocaleString() : 'Not received'),
+      'config-item'));
+    holder.append(el('div', 'Last sequence: ' + identity.last_sequence, 'config-item mono'));
+  }
+  $('server-invite').disabled = details.status === 'paired';
+  $('server-revoke').disabled = details.status === 'revoked';
+}
+async function openServer(server) {
+  state.serverId = server.id;
+  $('server-dialog-title').textContent = server.name + ' / Agent identity';
+  $('server-invite-code').value = '';
+  $('server-code-area').classList.add('hidden');
+  $('server-error').textContent = '';
+  $('server-dialog').showModal();
+  try { await refreshServerIdentity(); }
+  catch (err) { $('server-error').textContent = err.message; }
+}
+async function createServerInvite() {
+  if (!state.serverId) return;
+  $('server-error').textContent = '';
+  $('server-invite-code').value = '';
+  $('server-code-area').classList.add('hidden');
+  try {
+    const result = (await api('/api/catalog/servers/' +
+      encodeURIComponent(state.serverId) + '/invites', {method:'POST'})).data;
+    $('server-invite-code').value = result.enrollment_code;
+    $('server-code-area').classList.remove('hidden');
+    await refreshServerIdentity();
+  } catch (err) { $('server-error').textContent = err.message; }
+}
+async function revokeServerIdentity() {
+  if (!state.serverId) return;
+  if (!window.confirm('Revoke this server identity and invalidate its invitations? Existing signed heartbeats will be denied.')) return;
+  $('server-error').textContent = '';
+  try {
+    await api('/api/catalog/servers/' +
+      encodeURIComponent(state.serverId) + '/revoke', {method:'POST'});
+    $('server-invite-code').value = '';
+    $('server-code-area').classList.add('hidden');
+    await refreshServerIdentity();
+    await refresh();
+  } catch (err) { $('server-error').textContent = err.message; }
+}
 async function openProject(project) {
   state.projectId = project.id;
   $('project-dialog-title').textContent = project.name + ' / Environments';
@@ -289,6 +350,17 @@ async function previewCompose(event) {
   }
 }
 async function init() {
+  $('close-server').addEventListener('click', () => {
+    $('server-invite-code').value = '';
+    $('server-code-area').classList.add('hidden');
+    $('server-dialog').close();
+  });
+  $('server-dialog').addEventListener('close', () => {
+    $('server-invite-code').value = '';
+    $('server-code-area').classList.add('hidden');
+  });
+  $('server-invite').addEventListener('click', createServerInvite);
+  $('server-revoke').addEventListener('click', revokeServerIdentity);
   $('compose-form').addEventListener('submit', previewCompose);
   $('close-project').addEventListener('click', () => $('project-dialog').close());
   $('environment-form').addEventListener('submit', createEnvironment);
