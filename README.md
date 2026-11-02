@@ -100,6 +100,17 @@ restarts services; see the
 [existing VPS upgrade guide](docs/EXISTING_VPS_UPGRADE.md).
 Access the dashboard over the HTTPS Tailscale Serve endpoint, not a public port.
 
+To promote an **already tested** candidate manually, the operator may run
+`python3 scripts/promote-vps.py --check --stage /opt/mt-panel-stage.EXACT_ID`,
+then `--activate --stage /opt/mt-panel-stage.EXACT_ID --confirm ACTIVATE_MT_PANEL`
+in a short MT Panel maintenance window. This stops/restarts only the MT Panel
+dashboard and agent, snapshots the existing SQLite database and code, and
+performs automatic post-start health/authentication checks with rollback on failure.
+Never guess stage or backup directory names. See the
+[existing VPS upgrade and rollback guide](docs/EXISTING_VPS_UPGRADE.md).
+The stage must be a previously verified candidate; the script does not promote
+uncommitted code or restart Docker.
+
 ## Security boundary
 
 **Do not expose the agent to the Internet or the Docker daemon on unauthenticated TCP.** A Docker socket holder has root-equivalent host access, including if a socket mount is labeled `:ro`; the Python agent still needs special care even with read-only API routes. In Phase 1, only the host-local agent can open the Docker socket; the UI/API does not. Never run the dashboard as a Docker-group member. This is a test/pilot codebase, not a fully security-audited production panel.
