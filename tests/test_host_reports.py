@@ -163,3 +163,70 @@ def test_probe_is_linux_only_and_never_requires_docker(monkeypatch):
     source=(Path(__file__).resolve().parent.parent / "agent/host_probe.py").read_text()
     assert "docker" not in source.lower().replace("no docker", "")
     assert "/var/run/docker.sock" not in source
+
+
+def test_signed_history_readback_and_owner_scope(tmp_path):
+    c, db, server, key = setup(tmp_path)
+    url = f"/api/catalog/servers/{server}/host-history"
+    assert c.get(url).json()["data"]["state"] == "no_samples"
+    first = {**HOST_REPORT, "disk_free_bytes": 12 * 1024**3}
+    second = {**HOST_REPORT, "disk_free_bytes": 50 * 1024**3}
+    assert c.post(f"/api/agents/{server}/host-report",
+                  json=payload(server, key, 1, snapshot=first)).status_code == 200
+    assert c.post(f"/api/agents/{server}/host-report",
+                  json=payload(server, key, 2, snapshot=second)).status_code == 200
+    history = c.get(url).json()["data"]
+    assert history["state"] == "history"
+    assert history["signed_reports_only"] is True
+    assert len(history["samples"]) == 2
+    assert history["samples"][0]["disk_free_percent"] == round(
+        first["disk_free_bytes"] * 100 / HOST_REPORT["disk_total_bytes"], 1)
+    assert history["samples"][1]["disk_free_percent"] == 50.0
+    assert len(c.get(url + "?limit=1").json()["data"]["samples"]) == 1
+    assert c.get(url + "?limit=0").status_code == 422
+    assert c.get(url + "?limit=201").status_code == 422
+    assert c.get(f"/api/catalog/servers/{'a' * 32}/host-history").status_code == 404
+    with pytest.raises(RegistryError):
+        HostReports(db).history("another-owner", server)
+    assert "snapshot_json" not in str(history)
+    assert "public_key" not in str(history)
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM host_report_history").fetchone()[0] == 2
+    assert c.post(f"/api/catalog/servers/{server}/revoke", headers=ORIGIN).status_code == 200
+    assert c.get(url).json()["data"]["samples"] == []
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM host_report_history").fetchone()[0] == 0
+
+
+def test_history_rejects_invalid_signature_and_replay(tmp_path):
+    c, db, server, key = setup(tmp_path)
+    path = f"/api/agents/{server}/host-report"
+    good = payload(server, key, 1)
+    tampered = {**good, "snapshot": {**good["snapshot"], "disk_free_bytes": 999}}
+    assert c.post(path, json=tampered).status_code == 401
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM host_report_history").fetchone()[0] == 0
+    assert c.post(path, json=good).status_code == 200
+    assert c.post(path, json=good).status_code == 401
+    with sqlite3.connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM host_report_history").fetchone()[0] == 1
+
+
+def test_signed_history_is_bounded_per_server(tmp_path):
+    c, db, server, key = setup(tmp_path)
+    store = HostReports(db)
+    # Real signature validation and per-server pruning, including the
+    # 289th and later submissions; no direct DB insertion shortcuts.
+    for seq in range(1, 292):
+        data = payload(server, key, seq)
+        result = store.ingest(
+            server, seq, data["timestamp"], data["signature"],
+            HostSnapshot.model_validate(data["snapshot"]))
+        assert result["status"] == "accepted"
+    with sqlite3.connect(db) as conn:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM host_report_history WHERE server_id=?",
+            (server,)).fetchone()[0]
+        assert count == 288
+    history = store.history("admin", server, 200)
+    assert len(history["samples"]) == 200
