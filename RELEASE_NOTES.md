@@ -1,3 +1,30 @@
+## v0.3.8-dev — Phase A lab-only local deployment execution foundation
+
+- Added a **disabled-by-default** local agent action endpoint and separately
+  signed, strict-schema lab operations with HMAC replay protection and a
+  dedicated private agent SQLite nonce/audit store. Existing Ed25519 remote
+  agent trust remains intact.
+- Added constrained Docker Engine write adapter for *new* MT Panel-labeled
+  candidate containers only: pinned preloaded digest, no network, published
+  ports, mounts or privileged flags; non-root UID and bounded resources.
+  The candidate image must have a baked-in Docker HEALTHCHECK.
+- Added owner-scoped SQLite draft/job queue, idempotency, immutable snapshot,
+  explicit approval, per-host exclusive lease and atomic transition/audit
+  events. An uncertain result enters NEEDS_REVIEW and holds the host lock.
+- Added manual API operations: DRAFT creation, QUEUED approval and RUN,
+  plus owner-only job list and events. No automatic background execution.
+- Added basic candidate health gate: success marks HEALTHY; failure stops
+  the new candidate and marks ROLLED_BACK **without any traffic switch**.
+  Actual previous-digest production rollback is not yet implemented.
+- Added strict agent ownership-label checks, deny-by-default tests,
+  persisted nonce replay tests, fake Docker health/rollback tests, and job
+  transition, origin, authorization and idempotency tests.
+- Production verifier now checks the agent's effective lab-write flag is
+  disabled. No existing systemd unit, Docker workload, reverse proxy,
+  port 80/443, or existing installed VPS was changed.
+- **Not production ready:** real disposable-host Docker integration,
+  crash reconciliation and prior-digest cutover/rollback must pass first.
+
 ## v0.3.7-dev — On-demand local diagnostics and non-executing draft review
 
 - Added read-only local Docker diagnostic triage from existing hard-coded

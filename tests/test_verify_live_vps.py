@@ -25,12 +25,13 @@ def test_version_and_unauthenticated_routes(monkeypatch):
     m = load_module()
     routes = {
         (8086, "/api/health"): (200, {"ok": True, "service": "mt-panel", "version": "0.3.2-dev"}),
-        (8788, "/health"): (200, {"ok": True, "service": "mt-panel-agent", "version": "0.1.1"}),
+        (8788, "/health"): (200, {"ok": True, "service": "mt-panel-agent", "version": "0.1.1", "lab_execution_enabled": False}),
         (8086, "/api/auth/me"): (401, {"detail": "Please sign in"}),
         (8086, "/api/catalog/servers"): (401, {"detail": "Please sign in"}),
         (8086, "/api/server/overview"): (401, {"detail": "Please sign in"}),
         (8086, "/api/monitoring/overview"): (401, {"detail": "Please sign in"}),
         (8086, "/api/deployments/readiness"): (401, {"detail": "Please sign in"}),
+        (8086, "/api/deployments/jobs"): (401, {"detail": "Please sign in"}),
         (8086, "/api/settings/security"): (401, {"detail": "Please sign in"}),
         (8086, "/api/monitoring/diagnostics"): (401, {"detail": "Please sign in"}),
         (8086, "/api/deployments/drafts/00000000000000000000000000000000/review"): (401, {"detail": "Please sign in"}),
@@ -141,3 +142,16 @@ def test_post_promotion_verifier_reports_staged_not_active_once(monkeypatch, cap
     assert "promote-vps.py --check" in captured.out
     assert "Missing schema" not in captured.out
     assert "FAIL:" not in captured.err
+
+
+def test_prod_verifier_rejects_agent_lab_writes(monkeypatch):
+    m = load_module()
+    def get(port, path):
+        if (port, path) == (8788, "/health"):
+            return 200, {"ok": True, "service": "mt-panel-agent",
+                         "version": "0.1.1", "lab_execution_enabled": True}
+        if (port, path) == (8086, "/api/health"):
+            return 200, {"ok": True, "service": "mt-panel", "version": "0.3.8-dev"}
+        return 401, {"detail": "Please sign in"}
+    monkeypatch.setattr(m, "get_local", get)
+    assert any("Docker writes" in msg for msg in m.check_http("0.3.8-dev"))

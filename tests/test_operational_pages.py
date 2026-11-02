@@ -81,7 +81,7 @@ def test_pages_are_owner_only_and_do_not_expose_tokens(tmp_path):
     assert deployment["docker_writes_enabled"] is False
 
     posture = c.get(urls[2]).json()["data"]
-    assert posture["app_version"] == "0.3.7-dev"
+    assert posture["app_version"] == "0.3.8-dev"
     assert posture["owner"] == "owner"
     assert posture["container_writes"] is False
     assert posture["deployment_execution"] is False

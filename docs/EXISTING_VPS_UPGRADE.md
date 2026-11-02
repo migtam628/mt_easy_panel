@@ -210,3 +210,25 @@ The staged promotion workflow prints exact SHA-pinned commands.
 Verify `STAGE_REVISION` before invoking `--activate`. On success,
 run the expected-version verifier and `scripts/vps-status.py --check`.
 This release does not add Docker write actions or deployment execution.
+
+## v0.3.8 Phase A: default-off lab execution remains excluded on this VPS
+
+This release adds a **lab-only** write adapter, but its effective enable
+setting is false by default. Do **not** configure
+`PANEL_LOCAL_EXECUTION_ENABLED`, `AGENT_LOCAL_EXECUTION_ENABLED` or
+the associated disposable-host lab acknowledgements in the existing
+production VPS's environment file. Do **not** grant new privileges or
+run a write-enabled agent on that VPS.
+
+Before promotion, stage the release using the existing exact SHA-pinned
+workflow. Only after activation, run:
+
+```bash
+python3 scripts/verify-live-vps.py --check --expected-version 0.3.8-dev
+python3 scripts/vps-status.py --check
+```
+
+The post-promotion verifier additionally checks the local Docker agent's
+health reports `lab_execution_enabled: false`, and fails rather than
+claiming a safe deployment if this is missing or true. This does not
+test or authorize the optional disposable-host lab write path.

@@ -1,7 +1,7 @@
 # MT Panel — Technical Product Specification
 
-**Version:** 0.1.0 (Phase 1 foundation)  
-**Project status:** Local implementation + automated tests. Not installed on a production VPS.  
+**Version:** 0.3.8-dev (Phase A lab-local candidate execution prototype)  
+**Project status:** Current VPS read-only pilot and lab-only Phase A execution prototype; the new write path has not been verified on disposable real Docker hardware.  
 **Ownership:** Independently written implementation; not an Easypanel fork, copy of its code, or compatible proprietary API.  
 **Architecture:** One unprivileged control plane, one constrained Docker inventory agent per host.  
 **Deployment safety:** Initial release is read-only. No destructive or write-capable Docker routes exist.
@@ -243,3 +243,22 @@ High-level pipeline:
 - Docker Compose normalization: https://docs.docker.com/reference/cli/docker/compose/config/
 - Tailscale Grants/access: https://tailscale.com/docs/features/access-control
 - Easypanel documentation, as a functional product reference only: https://easypanel.io/docs
+
+## 14. v0.3.8-dev experimental extension (supersedes earlier Phase 1 status notes)
+
+The technical sections describing a GET-only agent reflect the original
+Phase 1 production default. The new write API is disabled unless *both*
+the panel and the agent are explicitly lab-enabled, with distinct
+credentials and a disposable-host acknowledgement. It is not a generic
+Engine API proxy; no host changes occur on installation or upgrade.
+
+Local job ledger uses SQLite (not Redis) and records idempotency,
+owner-scoped draft snapshots, atomic audits, single-host job leases,
+manual queue approval, and fail-closed NEEDS_REVIEW states. A new local
+agent action endpoint requires bearer + separately HMAC-signed strict
+actions and a durable replay SQLite ledger. Candidate containers are
+new, unrouted, non-root and stopped on failed image HEALTHCHECK; previous
+workloads remain untouched. Real deployment cutover/rollback requires
+a future version and disposable Docker host validation.
+
+[Current Phase A design and security boundary](PHASE_A_LOCAL_EXECUTION.md).

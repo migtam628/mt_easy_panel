@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.7-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.8-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -31,6 +31,7 @@ For VPS browser access, use **Tailscale Serve over private HTTPS on port 8443** 
 - [Private remote-agent enrollment and signed heartbeat guide](docs/REMOTE_AGENT_ENROLLMENT.md)
 - [Fleet signed-health history, warnings and operational safety](docs/FLEET_HEALTH_MONITORING.md)
 - [Architecture decision records](docs/ARCHITECTURE_DECISIONS.md)
+- [Phase A lab-only local execution model and operational safety](docs/PHASE_A_LOCAL_EXECUTION.md)
 - [Next implementation backlog and release gates](docs/PHASE2_BACKLOG.md)
 - [Release notes](RELEASE_NOTES.md)
 
@@ -276,6 +277,32 @@ existing owner session, and the latter requires draft ownership. No
 remote Docker access, build, restart, cron or deployment execution was
 introduced. For staging and reversible promotion on the VPS, use the
 [existing installation runbook](docs/EXISTING_VPS_UPGRADE.md).
+
+## Phase A — Lab-only local execution pilot (v0.3.8-dev)
+
+A new **disabled-by-default** local action agent accepts only strict,
+HMAC-authenticated create/deploy/start/stop/restart operations for a
+new MT Panel lab-owned candidate container. The control plane **never**
+gets Docker socket access. The local agent still reads Docker through its
+original GET allowlist by default. The write path is enabled only by
+separate, explicit disposable-host settings and a different signing key;
+remote Ed25519 enrollment and signed telemetry stay unchanged.
+
+A SQLite job ledger now supports authenticated, owner-scoped DRAFT jobs,
+explicitly approved QUEUED jobs and individually leased RUNNING jobs.
+Outcomes are HEALTHY, ROLLED_BACK (candidate stopped, no traffic switched)
+or NEEDS_REVIEW (uncertain result; blocks further host jobs). All
+transitions are durably audited; agent nonces are persisted before writes.
+
+**This is not general production deployment.** Real Docker-integration
+tests on a disposable machine, reconciliation, service revision history,
+blue/green cutover, previous digest rollback, volumes, databases, network
+routing, proxy integration and remote writes are **not implemented**.
+Do not enable the lab writer on the VPS hosting your applications. Staging
+or promoting this version on that VPS does not opt in to lab execution;
+the production verifier checks agent write enablement is false.
+
+See [Phase A local execution ADR/runbook](docs/PHASE_A_LOCAL_EXECUTION.md).
 
 ## Security boundary
 

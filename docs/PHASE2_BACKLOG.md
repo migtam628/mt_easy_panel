@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.7-dev
+# Phase 2 Build Backlog — MT Panel v0.3.8-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -57,3 +57,20 @@ returns static checks, and always blocks host execution. These are
 remote attestation, port allocation, a job queue or an authorization to
 modify Docker. A separate disposable Docker host is still mandatory
 before any deployment write operations.
+
+## Phase A lab-local execution foundation — partially implemented v0.3.8-dev
+
+- Owner-only SQLite DRAFT → explicitly approved QUEUED → individually leased
+  RUNNING → HEALTHY / ROLLED_BACK / NEEDS_REVIEW, with durable audit.
+- Separate local signing key, HMAC canonical action, limited freshness,
+  agent-persistent SQLite nonce protection, deny-by-default opt-in.
+- Fixed Docker allowlist for isolated, unrouted, non-root,
+  ownership-labeled candidate creation and start/stop/restart only.
+- Baked-in image HEALTHCHECK gates candidate success; unsuccessful
+  candidates are stopped. Existing production traffic and digests untouched.
+- No automatic worker or Docker daemon access in the control plane.
+
+**Not done:** real Docker host integration/failure injection, crash
+reconciliation, previous-digest cutover and rollback, independent remote
+agent deployment permissions, volume safety, registry pull, Git sources
+or Compose. Existing production VPS must not enable lab execution.
