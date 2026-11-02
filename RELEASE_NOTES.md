@@ -1,3 +1,13 @@
+## Read-only live deployment verification
+
+- Added `scripts/verify-live-vps.py --check` to distinguish a staged checkout
+  from the actual running dashboard version.
+- Checks loopback dashboard/agent health, HTTP 401 on protected routes,
+  read-only SQLite quick integrity/schema, and private Tailscale Serve 8443.
+- Never imports application code (which initializes schema), authenticates,
+  changes database content, contacts Docker, or restarts services.
+- Includes regression tests with simulated HTTP, SQLite and Serve responses.
+
 ## v0.3.2-dev — Signed read-only Linux host summaries
 
 - Added bounded strict host-report schema and Ed25519 signature domain.
