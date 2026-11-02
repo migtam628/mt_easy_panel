@@ -76,8 +76,9 @@ claim rollback success.
   signed local agent call. No scheduled auto-run worker is installed.
 - Read status/events:
   `GET /api/deployments/jobs` and `GET /api/deployments/jobs/{job_id}`.
-  Responses omit agent bearer tokens, HMAC keys, lease tokens and raw Docker
-  inspect or environment records.
+  The Deployments UI shows a bounded read-only recent job table, without
+  actions to approve or execute jobs. Responses omit agent bearer tokens,
+  HMAC keys, lease tokens and raw Docker inspect or environment records.
 - State path:
   `DRAFT -> QUEUED -> RUNNING -> HEALTHY | ROLLED_BACK | NEEDS_REVIEW`.
   SQLite commits each transition and audit event atomically. Idempotency
