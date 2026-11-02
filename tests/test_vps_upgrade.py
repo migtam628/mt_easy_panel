@@ -83,3 +83,15 @@ def test_vps_stage_script_has_no_activation_or_docker_mutations():
         "tailscale serve reset", "tailscale funnel --bg",
     ]:
         assert prohibited not in source
+
+
+def test_staging_preserves_existing_candidates():
+    # This is a static gate: the live operator --stage path must never
+    # delete an older, successfully tested candidate to make room.
+    src = (ROOT / "scripts" / "upgrade-vps.sh").read_text()
+    assert "existing_stages=" in src
+    assert 'if [[ "$existing_stages" -ge 5 ]]' in src
+    assert 'mktemp -d /opt/mt-panel-stage.XXXXXXXX' in src
+    assert 'rm -rf -- "$stage"' in src  # cleanup only of *this* failed build
+    assert "rm -rf /opt/mt-panel-stage" not in src
+    assert "An existing MT Panel staged upgrade is present" not in src
