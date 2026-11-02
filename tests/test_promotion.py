@@ -136,3 +136,24 @@ def test_manual_rollback_does_not_require_current_services_healthy(tmp_path, mon
         assert db.execute("SELECT value FROM state").fetchone() == ("old",)
     with sqlite3.connect(backup / "pre-rollback.db") as db:
         assert db.execute("SELECT value FROM state").fetchone() == ("new",)
+
+
+def test_promotion_expected_commit_requires_exact_sha():
+    m = load_module()
+    correct = "a" * 40
+    m.verify_expected_commit(correct, None)  # Legacy workflow still supported.
+    m.verify_expected_commit(correct, correct)
+    with pytest.raises(m.PromotionError, match="40-character"):
+        m.verify_expected_commit(correct, "a" * 7)
+    with pytest.raises(m.PromotionError, match="does not match"):
+        m.verify_expected_commit(correct, "b" * 40)
+
+
+def test_upgrade_script_prints_commit_pinned_commands():
+    src = (ROOT / "scripts" / "upgrade-vps.sh").read_text()
+    assert 'STAGE_PATH=$stage' in src
+    assert 'STAGE_REVISION=$revision' in src
+    assert '--expect-commit %q' in src
+    assert '--activate --stage %q --expect-commit %q --confirm ACTIVATE_MT_PANEL' in src
+    assert "ONLY AFTER activation" in src
+    assert "systemctl restart" not in src
