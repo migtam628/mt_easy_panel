@@ -6,12 +6,75 @@ Docker, parses Compose, reads environment secrets or modifies a host.
 from __future__ import annotations
 
 import json
-from panel.registry import Registry
+from panel.registry import Registry, RegistryError
+from panel.manifests import ServiceDraft
+from pydantic import ValidationError
 
 
 class DeploymentReadiness:
     def __init__(self, db_path: str):
         self.registry = Registry(db_path)
+
+    def review(self, owner: str, draft_id: str) -> dict:
+        """Explain whether an owner-owned draft satisfies *static* policy.
+
+        This is NOT a permission to deploy, reserve a port or run Docker.
+        Identity pairing cannot establish remote host capacity or authority.
+        """
+        with self.registry.connect() as db:
+            row = db.execute("""
+                SELECT d.name, d.slug, d.manifest_json, e.name AS environment,
+                       p.name AS project, p.server_id, s.name AS server_name,
+                       s.status AS server_status
+                  FROM service_drafts d
+                  JOIN environments e ON e.id=d.environment_id
+                  JOIN projects p ON p.id=e.project_id
+             LEFT JOIN servers s ON s.id=p.server_id AND s.owner=p.owner
+                 WHERE p.owner=? AND d.id=?
+            """, (owner, draft_id)).fetchone()
+        if row is None:
+            raise RegistryError("Draft not found", 404)
+        checks = []
+        def check(code: str, passed: bool, explanation: str) -> None:
+            checks.append({"code": code, "passed": passed, "explanation": explanation})
+
+        try:
+            manifest = ServiceDraft.model_validate_json(row["manifest_json"])
+            valid = True
+        except (ValidationError, ValueError, TypeError):
+            manifest = None
+            valid = False
+        check("safe_manifest", valid,
+              "Strict schema, immutable image digest and read-only root filesystem")
+        check("server_assigned", row["server_id"] is not None,
+              "An intended server record must be assigned")
+        check("identity_paired",
+              row["server_id"] is not None and row["server_status"] == "paired",
+              "Saved server identity must be paired; pairing is NOT Docker authorization")
+        check("remote_host_verified", False,
+              "An independent disposable-host security validation is required")
+        check("execution_gate", False,
+              "Production job runner and write authorization are not implemented")
+
+        safe_manifest = None
+        if manifest is not None:
+            safe_manifest = {
+                "image": manifest.image,
+                "container_port": manifest.container_port,
+                "cpu_limit": manifest.cpu_limit,
+                "memory_mb": manifest.memory_mb,
+                "read_only_rootfs": manifest.read_only_rootfs,
+            }
+        return {
+            "draft_id": draft_id, "draft": row["name"], "project": row["project"],
+            "environment": row["environment"], "server": row["server_name"],
+            "manifest": safe_manifest,
+            "checks": checks, "passed_static_checks": sum(
+                1 for item in checks[:3] if item["passed"]),
+            "total_static_checks": 3,
+            "executable": False, "execution_enabled": False,
+            "remote_docker_access": False,
+        }
 
     def list_drafts(self, owner: str) -> dict:
         with self.registry.connect() as db:
