@@ -1,3 +1,10 @@
+## Existing VPS upgrade staging and status (development)
+
+- Added `scripts/vps-status.py --check` for read-only verification of the installed control-plane/agent identities, local bindings and private HTTPS origin without leaking the agent token.
+- Added `scripts/upgrade-vps.sh --check|--stage` to archive only Git-tracked sources, install dependencies in an isolated directory and run the test suite, without replacing or stopping the live installation.
+- Documented staged-upgrade verification and future promotion/rollback gates for an existing systemd VPS.
+- Still requires explicit VPS-side activation and backup verification before any live code switch.
+
 ## Tailscale-only VPS access update (v0.2.1-dev)
 
 - Added `scripts/tailscale-access.sh --check` to identify the node's actual Tailscale HTTPS hostname and refuse Serve/Funnel port 8443 conflicts.
