@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.6-dev
+# Phase 2 Build Backlog — MT Panel v0.3.7-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -45,3 +45,15 @@ read all staged/installed/source revisions with a no-write release-status
 check. The live verifier now distinguishes "staged but not promoted" from
 a failed running application. Live container writes and agent remote
 management remain excluded until tested on an isolated Docker host.
+
+## Monitoring & deployment diagnostic review — completed v0.3.7-dev
+
+On-demand local Docker container triage now counts explicit reported
+unhealthy/restarting/dead conditions without misclassifying ordinary
+exited services. Disk capacity metrics use fixed warning/critical bands.
+The deployment review endpoint validates an owner's pinned-image draft,
+returns static checks, and always blocks host execution. These are
+**read-only, manually refreshed** diagnostics, not automatic monitoring,
+remote attestation, port allocation, a job queue or an authorization to
+modify Docker. A separate disposable Docker host is still mandatory
+before any deployment write operations.

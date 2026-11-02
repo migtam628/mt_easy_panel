@@ -23,3 +23,7 @@
 
 /* Phase 2 read-only operational context: no action controls in these pages. */
 .phase-guide{border:1px solid #cce4e2;background:#eff8f6;color:#2e625f;border-radius:9px;padding:13px 17px;margin:0 0 22px;line-height:1.55;font-size:13px}
+
+/* Read-only monitoring diagnostics remain a separate table from signed fleet identity. */
+#secondary-panel{margin-top:22px}
+#draft-review-dialog .config-list{max-height:260px}

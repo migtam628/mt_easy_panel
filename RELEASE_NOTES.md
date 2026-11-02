@@ -1,3 +1,22 @@
+## v0.3.7-dev — On-demand local diagnostics and non-executing draft review
+
+- Added read-only local Docker diagnostic triage from existing hard-coded
+  agent GET inventory. Explicit Docker-reported unhealthy, restarting, and
+  dead states are surfaced without treating every stopped container as an alert.
+- Added disk capacity thresholds and clear offline/demo states; never imply
+  health when the agent or metrics are unavailable.
+- Added second monitoring table showing flagged local containers, alongside
+  existing owner-scoped signed fleet summary. The UI only renders the first
+  100 local diagnostics for performance; the API bounds parsing at 2,000.
+- Added a per-draft **Review policy** dialog and owner-scoped GET endpoint
+  that validates the stored strict digest-pinned, read-only service manifest.
+  The review always denies execution/remote Docker access; no job is created.
+- Strengthened live upgrade's unauthenticated endpoint checks for these
+  new read-only routes, and added regression coverage for malformed data,
+  authorization, offline agent handling and no new mutation methods.
+- No host restarts, Docker writes, deployments, network reconfiguration or
+  live VPS upgrade performed from GitHub.
+
 ## v0.3.6-dev — Safe release lifecycle, no Docker changes
 
 - Added a read-only `scripts/release-status.py --check` to display

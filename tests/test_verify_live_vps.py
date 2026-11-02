@@ -32,6 +32,8 @@ def test_version_and_unauthenticated_routes(monkeypatch):
         (8086, "/api/monitoring/overview"): (401, {"detail": "Please sign in"}),
         (8086, "/api/deployments/readiness"): (401, {"detail": "Please sign in"}),
         (8086, "/api/settings/security"): (401, {"detail": "Please sign in"}),
+        (8086, "/api/monitoring/diagnostics"): (401, {"detail": "Please sign in"}),
+        (8086, "/api/deployments/drafts/00000000000000000000000000000000/review"): (401, {"detail": "Please sign in"}),
     }
     monkeypatch.setattr(m, "get_local", lambda p, u: routes[p, u])
     with redirect_stdout(io.StringIO()):

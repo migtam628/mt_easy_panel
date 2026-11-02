@@ -197,3 +197,16 @@ holds root-equivalent socket access. Saved server/project/Compose records
 do not cause deployments. Do not enable arbitrary container writes, SSH agent
 management, or live redeployment of production containers until the separate
 deployment security gate and disposable-host tests pass.
+
+## v0.3.7: local diagnostic screens, staged-only until promoted
+
+Before a fresh upgrade, use `python3 scripts/release-status.py --check`
+to distinguish the currently running MT Panel from the repository checkout.
+The new diagnostics endpoints are **not** present in an older active build,
+so `scripts/verify-live-vps.py --check --expected-version 0.3.7-dev`
+must be run **only after successful activation** of a v0.3.7 candidate.
+
+The staged promotion workflow prints exact SHA-pinned commands.
+Verify `STAGE_REVISION` before invoking `--activate`. On success,
+run the expected-version verifier and `scripts/vps-status.py --check`.
+This release does not add Docker write actions or deployment execution.

@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.6-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.7-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -249,6 +249,33 @@ The operator still explicitly activates a tested release in a brief MT
 Panel-only maintenance window. Old staging candidates and rollback
 snapshots are never automatically deleted. See the
 [existing VPS upgrade guide](docs/EXISTING_VPS_UPGRADE.md).
+
+## Read-only diagnostic triage and draft policy review (v0.3.7-dev)
+
+The Monitoring screen now shows an **on-demand local Docker diagnostic
+table**, derived from the same GET-only host agent used for container
+inventory. It summarizes running, exited, restarting and dead containers.
+Only explicit Docker `(unhealthy)` text counts as a reported unhealthy
+container; stopped/exited alone is **not** labeled an incident. A bounded
+list (up to 100 rows in the UI; at most 2,000 processed by the API) puts
+flagged containers first. Disk capacity warnings use fixed thresholds:
+below 20% free is warning, below 10% critical. Unknown values stay
+unknown; demo data is labeled and an offline agent is never treated as healthy.
+
+The Deployments page now has a **Review policy** action for each saved
+owner-owned draft. It shows static checks for an immutable image digest,
+read-only filesystem, strict resource limits, assigned server metadata
+and pairing. It also explicitly marks remote host validation and job
+execution **blocked**, even when every static check passes. The review
+GET endpoint has no Docker write access and creates no jobs.
+
+Read-only APIs:
+`GET /api/monitoring/diagnostics` and
+`GET /api/deployments/drafts/{draft_id}/review`. Both require the
+existing owner session, and the latter requires draft ownership. No
+remote Docker access, build, restart, cron or deployment execution was
+introduced. For staging and reversible promotion on the VPS, use the
+[existing installation runbook](docs/EXISTING_VPS_UPGRADE.md).
 
 ## Security boundary
 

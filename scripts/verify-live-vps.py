@@ -42,7 +42,8 @@ def get_local(port: int, path: str) -> tuple[int, object]:
         "/health", "/api/health", "/api/auth/me",
         "/api/catalog/servers", "/api/server/overview",
         "/api/monitoring/overview", "/api/deployments/readiness",
-        "/api/settings/security",
+        "/api/settings/security", "/api/monitoring/diagnostics",
+        "/api/deployments/drafts/00000000000000000000000000000000/review",
     ):
         raise ValueError("Unrecognized read-only health probe")
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
@@ -83,7 +84,8 @@ def check_http(expected_version: str) -> list[str]:
     for path in (
         "/api/auth/me", "/api/catalog/servers", "/api/server/overview",
         "/api/monitoring/overview", "/api/deployments/readiness",
-        "/api/settings/security",
+        "/api/settings/security", "/api/monitoring/diagnostics",
+        "/api/deployments/drafts/00000000000000000000000000000000/review",
     ):
         try:
             code, _ = get_local(8086, path)
@@ -160,7 +162,7 @@ def check_revision(path: Path = INSTALL) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", required=True)
-    parser.add_argument("--expected-version", default="0.3.6-dev")
+    parser.add_argument("--expected-version", default="0.3.7-dev")
     args = parser.parse_args()
 
     # This command is deliberately POST-PROMOTION only. A common operator
