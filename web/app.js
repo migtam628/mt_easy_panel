@@ -10,6 +10,9 @@ const descriptions = {
   servers: ['Servers', 'Monitor verified agent identities and signed host health. Remote Docker access remains disabled.', 'Fleet health'],
   projects: ['Projects', 'Configuration-only application workspaces.', 'Projects'],
   activity: ['Activity', 'Recent administrative sign-in and sign-out events.', 'Security audit log'],
+  monitoring: ['Monitoring', 'Read-only host capacity and signed fleet signals.', 'Host and identity health'],
+  deployments: ['Deployments', 'Configuration drafts only. Execution is disabled.', 'Deployment preparation'],
+  settings: ['Security settings', 'Review effective settings without exposing secrets.', 'Security posture'],
 };
 async function api(path, options = {}) {
   const resp = await fetch(path, {credentials: 'same-origin', cache: 'no-store', ...options});
@@ -47,6 +50,16 @@ function metric(title, value, foot, icon) {
   const c = el('div', '', 'stat');
   c.append(el('span', icon, 'stat-icon'), el('div', title, 'stat-label'), el('div', value, 'stat-value'), el('div', foot, 'stat-footer'));
   return c;
+}
+function renderMetricCards(items) {
+  const holder = $('stats'); holder.replaceChildren();
+  holder.classList.toggle('hidden', !items.length);
+  items.forEach(item => holder.append(metric(...item)));
+}
+function showGuide(message) {
+  const holder = $('phase-guide');
+  holder.textContent = message;
+  holder.classList.toggle('hidden', !message);
 }
 function renderStats(data) {
   const holder = $('stats'); holder.replaceChildren();
@@ -163,6 +176,64 @@ async function refresh() {
         data.map(x => plainRow([new Date(x.timestamp * 1000).toLocaleString(),
           x.actor, x.action, x.result, x.source_ip || '—'])));
       $('table-subtitle').textContent = 'Owner-visible, locally persisted security events.';
+    } else if (view === 'monitoring') {
+      const data = (await api('/api/monitoring/overview')).data;
+      const count = data.fleet.counts;
+      const local = data.local_host;
+      renderMetricCards([
+        ['Local containers', local ? number(local.containers_total) : '—',
+          local ? number(local.containers_running) + ' running' : 'Local agent unavailable', '▤'],
+        ['Registered servers', number(data.fleet.servers.length),
+          data.fleet.truncated ? 'First 500 shown' : 'Saved owner records', '◇'],
+        ['Signed heartbeats', number(count.heartbeat_recent),
+          number(count.heartbeat_stale) + ' stale', '◉'],
+        ['Warnings', number(count.warning_servers),
+          number(count.critical_servers) + ' critical', '⚑'],
+      ]);
+      const rows = data.fleet.servers.map(x => plainRow([
+        x.name, x.status, x.heartbeat_state, x.report_state,
+        (x.warnings || []).map(w => w.severity.toUpperCase() + ': ' + w.message).join('; ') || 'No warnings',
+        x.last_report ? new Date(x.last_report * 1000).toLocaleString() : '—'
+      ]));
+      tableRows(['Server', 'Identity', 'Signed heartbeat', 'Host report', 'Warnings',
+        'Last report'], rows);
+      $('table-subtitle').textContent = data.local_state === 'connected'
+        ? 'Local host connected · Remote health is self-reported and signed'
+        : 'Local agent ' + data.local_state + ' · Remote health is self-reported and signed';
+      showGuide('Monitoring is on-demand only. No background polling, alerts, remote Docker access, or automatic interventions are active.');
+    } else if (view === 'deployments') {
+      renderStats(null);
+      const result = (await api('/api/deployments/readiness')).data;
+      tableRows(['Draft', 'Project', 'Environment', 'Server', 'Image (pinned)',
+        'State / blockers'], result.drafts.map(d => plainRow([
+          d.name, d.project, d.environment, d.server_name || 'Not assigned',
+          d.image ? (d.image.length > 70 ? d.image.slice(0, 67) + '…' : d.image) : 'Unavailable',
+          'Draft only · ' + d.blockers.join(', ')
+        ])));
+      $('table-subtitle').textContent = result.total_returned + ' saved drafts' +
+        (result.truncated ? ' (first 200)' : '') + ' · 0 executable deployments';
+      showGuide('Read-only deployment readiness. Drafts are not running workloads. No deployment queue, builds, Compose up, or Docker writes are implemented. Create drafts under Projects.');
+    } else if (view === 'settings') {
+      renderStats(null);
+      const p = (await api('/api/settings/security')).data;
+      const values = [
+        ['Version', p.app_version, 'Current running dashboard'],
+        ['Administrator', p.owner, 'Authenticated owner (single-user pilot)'],
+        ['HTTPS origin', p.public_origin, 'Browser origin only; no private keys'],
+        ['Session cookies', p.secure_cookies ? 'Secure + HttpOnly + SameSite=Strict' : 'HttpOnly + SameSite=Strict', 'No cookie values exposed'],
+        ['Host agent', p.agent_connection, 'Dedicated local agent only'],
+        ['Docker inventory', p.local_docker_inventory, 'Read-only queries'],
+        ['Remote Docker', p.remote_docker_access ? 'Enabled' : 'Disabled', 'No remote Docker operations'],
+        ['Container writes', p.container_writes ? 'Enabled' : 'Disabled', 'No start/stop/restart'],
+        ['Deployment execution', p.deployment_execution ? 'Enabled' : 'Disabled', 'Configuration only'],
+        ['Multi-factor authentication', p.multi_factor_auth ? 'Enabled' : 'Not implemented', 'Required for a public production panel'],
+        ['Multi-user roles', p.multi_user_roles ? 'Enabled' : 'Not implemented', 'Single-owner pilot'],
+        ['Security audit', p.security_audit, 'Local persistent audit events'],
+        ['Background alerts', p.background_alerts ? 'Enabled' : 'Disabled', 'Manual refresh only']
+      ];
+      tableRows(['Control', 'Current value', 'Notes'], values.map(v => plainRow(v)));
+      $('table-subtitle').textContent = 'Read-only configuration disclosure · No credentials or secrets included';
+      showGuide('This page displays effective security settings. Credential rotation, MFA setup, and role management require a separate security-reviewed implementation.');
     } else {
       renderStats(null);
       const data = (await api(`/api/server/${view}`)).data;
@@ -176,7 +247,7 @@ async function refresh() {
     }
     $('updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
   } catch (err) {
-    if (view !== 'activity') {
+    if (['overview','containers','images','networks','volumes'].includes(view)) {
       $('agent-state').textContent = 'Unavailable';
       document.querySelector('.status-dot').classList.remove('ok');
     }
@@ -191,6 +262,7 @@ function switchView(view) {
   $('page-title').textContent = desc[0]; $('breadcrumb').textContent = desc[0];
   $('page-desc').textContent = desc[1]; $('table-title').textContent = desc[2];
   $('demo-banner').classList.add('hidden');
+  showGuide('');
   $('create-resource').classList.toggle('hidden', !['servers','projects'].includes(view));
   $('create-resource').textContent = view === 'servers' ? '+ Add server' : '+ New project';
   refresh();
