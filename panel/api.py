@@ -94,6 +94,38 @@ class AgentClient:
             raise ValueError("Invalid container ID")
         return await self._request(f"/v1/containers/{container_id}/logs?tail=80")
 
+    async def lab_candidate(self, job_id: str, draft_id: str) -> dict:
+        """GET one strict lab-owned candidate; no raw Engine inspect is returned."""
+        if not self.settings.lab_execution_enabled:
+            raise HTTPException(403, "Local deployment execution disabled")
+        for value in (job_id, draft_id):
+            if len(value) != 32 or any(c not in "0123456789abcdef" for c in value):
+                raise HTTPException(422, "Invalid lab identifier")
+        path = f"/v1/lab/candidates/{job_id}"
+        try:
+            async with httpx.AsyncClient(timeout=6, trust_env=False) as client:
+                response = await client.get(
+                    self.settings.agent_url.rstrip("/") + path,
+                    params={"draft_id": draft_id},
+                    headers={"Authorization": f"Bearer {self.settings.agent_token}"},
+                )
+                response.raise_for_status()
+                result = response.json()["data"]
+                allowed = {"absent", "stopped", "running_healthy",
+                           "running_unhealthy", "running_starting", "running_unknown"}
+                if (not isinstance(result, dict)
+                        or result.get("observation") not in allowed
+                        or not isinstance(result.get("present"), bool)
+                        or result.get("safe_to_retry") is not False
+                        or result.get("traffic_switched") is not False):
+                    raise ValueError("Unexpected lab candidate observation")
+                return {"observation": result["observation"],
+                        "present": result["present"],
+                        "safe_to_retry": False,
+                        "traffic_switched": False}
+        except (httpx.RequestError, httpx.HTTPStatusError, ValueError, KeyError) as exc:
+            raise HTTPException(503, "Local candidate inspection unavailable; job remains blocked") from exc
+
     async def lab_action(self, operation: str, job_id: str, draft_id: str,
                          manifest: ServiceDraft | None = None) -> dict:
         if not self.settings.lab_execution_enabled:
@@ -247,7 +279,8 @@ def create_app(settings: Settings | None = None, agent=None):
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "service": "mt-panel", "version": "0.3.8-dev"}
+        return {"ok": True, "service": "mt-panel", "version": "0.3.8-dev",
+                "lab_execution_enabled": settings.lab_execution_enabled}
 
     @app.get("/api/setup")
     def setup():
@@ -427,6 +460,39 @@ def create_app(settings: Settings | None = None, agent=None):
         except RegistryError as exc:
             raise HTTPException(exc.status, str(exc)) from exc
         return {"data": record}
+
+    @app.get("/api/deployments/jobs/{job_id}/recovery")
+    async def inspect_local_job_recovery(job_id: str, user=Depends(current_user)):
+        if not settings.lab_execution_enabled:
+            row = registry_action(jobs.details, user["username"], job_id)["data"]
+            return {"data": {"job_id": job_id, "job_state": row["state"],
+                             "observation": "disabled", "safe_to_retry": False,
+                             "host_lock_released": False}}
+        target = registry_action(jobs.recovery_target, user["username"],
+                                 job_id, settings.lab_server_id)["data"]
+        if target["state"] not in ("RUNNING", "NEEDS_REVIEW"):
+            return {"data": {**target, "observation": "not_applicable",
+                             "safe_to_retry": False, "host_lock_released": False}}
+        observation = await agent.lab_candidate(target["job_id"], target["draft_id"])
+        return {"data": {**target, **observation,
+                         "host_lock_released": False}}
+
+    @app.post("/api/deployments/jobs/{job_id}/reconcile")
+    async def reconcile_local_job(job_id: str, request: Request,
+                                  user=Depends(current_user)):
+        require_write_origin(request)
+        if (not settings.lab_execution_enabled or request.headers.get(
+                "X-MTPanel-Approval") != "INSPECT_AND_HOLD"):
+            raise HTTPException(403, "Explicit isolated-host reconciliation approval required")
+        target = registry_action(jobs.recovery_target, user["username"],
+                                 job_id, settings.lab_server_id)["data"]
+        if target["state"] not in ("RUNNING", "NEEDS_REVIEW"):
+            raise HTTPException(409, "Job is not unresolved")
+        if target["state"] == "RUNNING" and not target["lease_expired"]:
+            raise HTTPException(409, "Active job lease cannot be reconciled")
+        observation = await agent.lab_candidate(target["job_id"], target["draft_id"])
+        return registry_action(jobs.record_recovery, user["username"], job_id,
+                               settings.lab_server_id, observation["observation"])
 
     @app.get("/api/settings/security")
     def security_posture(user=Depends(current_user)):
