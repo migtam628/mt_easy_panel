@@ -1,8 +1,8 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.2.0-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.2.1-dev`.
 
-MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. It has not been installed on any user VPS or tested against a live Docker daemon in this environment.
+MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. The dedicated Ubuntu 26.04 systemd pilot installer and Python 3.14 CI checks are available, but live Docker inventory and installer operation on the user's VPS are not yet verified.
 
 ## Quick start
 
@@ -26,6 +26,7 @@ To view remotely, use an SSH local port forward over Tailscale (details in [Depl
 
 - [Full technical specification, architecture, target schema, API, security and roadmap](docs/TECHNICAL_SPEC.md)
 - [Pilot deployment and safety guide](docs/DEPLOYMENT.md)
+- [Ubuntu 26.04 VPS installer, preflight and activation runbook](docs/UBUNTU_26_04_VPS_PILOT.md)
 - [Architecture decision records](docs/ARCHITECTURE_DECISIONS.md)
 - [Next implementation backlog and release gates](docs/PHASE2_BACKLOG.md)
 - [Release notes](RELEASE_NOTES.md)
@@ -45,6 +46,7 @@ mt-panel/
 │   ├── index.html
 │   ├── styles.css
 │   └── app.js
+├── deployment/systemd/    # Isolated control plane and agent units
 ├── tests/                 # Auth, read-only access, routes, log framing
 ├── scripts/               # Setup, local launch, tests
 ├── docs/                  # Spec, deployment, ADRs, Phase 2 backlog
@@ -72,13 +74,17 @@ mt-panel/
 | Backups | Not yet | Restic, schedules and tested restores |
 | Multiple servers | Local agent only | Secure registration/pairing |
 
-## New pilot workflow (v0.2.0-dev)
+## New pilot workflow (v0.2.1-dev)
 
 After logging in, open **Servers** to create a local server *record* (unpaired) and **Projects** to create a project. Select **Manage** on a project to add environments and save image deployment drafts. A draft requires an image reference pinned to a complete sha256 digest, an internal container port, and conservative default resources. No actual Docker action is performed. The server registry does not accept SSH keys, host addresses or arbitrary URLs. The **Compose preview** in project management accepts only 1-4 digest-pinned, read-only services with internal exposed ports. Rejecting unsupported fields is intentional. It does not create containers, perform builds, or run Compose.
 
 For the VPS upgrade: stop the running development server, run `git pull --ff-only origin main`, install requirements using `.venv/bin/python -m pip install -r requirements.txt`, optionally install dev requirements and run `bash scripts/test.sh`, then restart. Existing `.env` and `state/` remain local; SQLite adds the new tables without overwriting administrators. Keep ports loopback-only and use the SSH/Tailscale tunnel.
 
 See [competitive research and implementation plan](docs/COMPETITIVE_RESEARCH_AND_PLAN.md).
+
+## Ubuntu 26.04 systemd pilot
+
+For a busy VPS, follow the [isolated installation runbook](docs/UBUNTU_26_04_VPS_PILOT.md). It begins with `bash scripts/install-vps.sh --check` (read-only); installation requires explicit `--install`. Services are **not started** automatically. The code is installed under `/opt/mt-panel`, separate from the GitHub checkout, with distinct Unix users. The dashboard stays off Docker's group, the agent has root-equivalent Docker group access, and both bind loopback-only without touching 80/443. Do not use this pilot as an Internet-facing production admin panel.
 
 ## Security boundary
 
