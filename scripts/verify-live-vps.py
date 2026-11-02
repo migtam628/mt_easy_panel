@@ -29,6 +29,8 @@ TABLES = {
     "enrollment_invites": {"server_id", "token_hash", "expires_at"},
     "host_snapshots": {"server_id", "snapshot_json", "sequence"},
     "host_report_history": {"server_id", "sequence", "recorded_at", "disk_free_percent"},
+    "local_deployment_jobs": {"id", "owner", "draft_id", "local_server_id", "state", "idempotency_key"},
+    "local_deployment_events": {"id", "job_id", "state", "code"},
 }
 SERVE_ROUTE = re.compile(
     r"^https://[a-z0-9-]+(?:\.[a-z0-9-]+)+\.ts\.net:8443 "
@@ -42,7 +44,8 @@ def get_local(port: int, path: str) -> tuple[int, object]:
         "/health", "/api/health", "/api/auth/me",
         "/api/catalog/servers", "/api/server/overview",
         "/api/monitoring/overview", "/api/deployments/readiness",
-        "/api/settings/security", "/api/monitoring/diagnostics",
+        "/api/settings/security", "/api/deployments/jobs",
+        "/api/monitoring/diagnostics",
         "/api/deployments/drafts/00000000000000000000000000000000/review",
     ):
         raise ValueError("Unrecognized read-only health probe")
@@ -77,6 +80,8 @@ def check_http(expected_version: str) -> list[str]:
             errors.append(f"Local {service} health identity/status mismatch")
             continue
         version = payload.get("version")
+        if service == "mt-panel-agent" and payload.get("lab_execution_enabled") is not False:
+            errors.append("Agent lab Docker writes are enabled or their status is unknown; production VPS must remain read-only")
         if service == "mt-panel" and version != expected_version:
             errors.append(f"Dashboard version is {version!r}; expected {expected_version!r} (not promoted)")
         else:
@@ -84,7 +89,8 @@ def check_http(expected_version: str) -> list[str]:
     for path in (
         "/api/auth/me", "/api/catalog/servers", "/api/server/overview",
         "/api/monitoring/overview", "/api/deployments/readiness",
-        "/api/settings/security", "/api/monitoring/diagnostics",
+        "/api/settings/security", "/api/deployments/jobs",
+        "/api/monitoring/diagnostics",
         "/api/deployments/drafts/00000000000000000000000000000000/review",
     ):
         try:
@@ -162,7 +168,7 @@ def check_revision(path: Path = INSTALL) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", required=True)
-    parser.add_argument("--expected-version", default="0.3.7-dev")
+    parser.add_argument("--expected-version", default="0.3.8-dev")
     args = parser.parse_args()
 
     # This command is deliberately POST-PROMOTION only. A common operator
