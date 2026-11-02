@@ -73,6 +73,8 @@ class EnrollmentStore:
         # newly enrolled key. The table is optional for older store-only tests.
         if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='host_snapshots'").fetchone():
             db.execute("DELETE FROM host_snapshots WHERE server_id=?", (server_id,))
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='host_report_history'").fetchone():
+            db.execute("DELETE FROM host_report_history WHERE server_id=?", (server_id,))
 
     @staticmethod
     def _owned(db, owner: str, server_id: str):
