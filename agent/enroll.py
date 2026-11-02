@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 import httpx
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
+from agent.sequence import next_sequence
 
 HEX_ID = re.compile(r"^[0-9a-f]{32}$")
 TS_HOST = re.compile(r"^[a-z0-9-]+(?:\.[a-z0-9-]+)+\.ts\.net$")
@@ -116,9 +117,9 @@ def heartbeat(origin: str, server_id: str, path: Path) -> dict:
     if not isinstance(key, Ed25519PrivateKey):
         raise ValueError("Identity key is not Ed25519")
     timestamp = int(time.time())
-    # Unix-nanosecond sequences avoid state loss after process restart.
-    # Very unusual backward wall-clock jumps may require re-enrollment.
-    sequence = time.time_ns()
+    # Allocate a durable, owner-private sequence before sending. A backward
+    # wall-clock correction or process restart cannot replay old heartbeats.
+    sequence = next_sequence(path)
     message = f"mtpanel-agent-heartbeat-v1:{server_id}:{sequence}:{timestamp}".encode("ascii")
     result = request(origin, "/api/agents/" + server_id + "/heartbeat",
                      {"sequence": sequence, "timestamp": timestamp,
