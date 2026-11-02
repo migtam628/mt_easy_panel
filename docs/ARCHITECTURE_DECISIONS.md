@@ -76,3 +76,33 @@ update cutover, volume recovery, or general Compose. Enabling writes on
 the existing production VPS is specifically unsupported without isolated
 host tests and a subsequent authorization decision. See
 [Phase A execution guide](PHASE_A_LOCAL_EXECUTION.md).
+
+## ADR-008 — No automatic recovery from uncertain Docker writes
+
+**Status:** Experimental, v0.3.9-dev. Production VPS remains read-only.
+
+**Decision:** A controller can inspect a pending lab job only through the
+preconfigured loopback agent, not a Docker socket or user-supplied URL. The
+agent requires the existing bearer, is lab-gated, inspects exactly one
+deterministically named candidate, verifies its immutable image digest and
+job/draft ownership labels, and returns only a small canonical observation
+(`absent`, `stopped`, `running_healthy`, `running_unhealthy`,
+`running_starting`, `running_unknown`). It never returns raw Docker
+inspect results or secrets. Remote Ed25519 trust remains separate and cannot
+authorize local Docker writes.
+
+The owner-session GET recovery route only reads; a separate same-origin,
+explicitly approved `INSPECT_AND_HOLD` POST records the observation and,
+when a RUNNING lease has expired, moves it to NEEDS_REVIEW. It is atomic
+with the SQLite audit event. It **never** releases the host lease,
+automatically retries the Docker action or declares a successful deployment
+based on missing or stopped containers. A still-active or absent lease
+cannot be arbitrarily invalidated. Identity mismatch and agent errors fail
+closed. Future manual resolution must have a stronger audited proof/approval
+process and disposable-host validation.
+
+**Consequence:** A lost response or controller crash can block lab
+deployments until an operator reviews the candidate externally. This
+deliberate availability tradeoff preserves isolation and prevents unintended
+replay of root-equivalent Docker operations. Existing production workloads
+continue running independently of controller downtime.

@@ -1,3 +1,24 @@
+## v0.3.9-dev — Fail-closed recovery inspections and safe staging sync
+
+- Added allowlisted lab candidate GET inspection: validates exact job/draft
+  ownership labels plus immutable pinned digest and exposes only sanitized
+  state, never raw Docker data.
+- Added owner-scoped recovery endpoint and explicitly approved, audited
+  reconciliation of expired RUNNING / NEEDS_REVIEW jobs. Unknown outcomes
+  continue to **lock** the host; no automated replay or release of locks.
+- Added fail-closed behavior for offline agents, foreign same-name
+  containers, malformed state and missing leases. Active leases may not
+  be reconciled concurrently.
+- Added `scripts/vps-test-sync.sh` for read-only sync checks or one-command
+  fast-forward + idempotent staging without automatic activation.
+- Tightened post-promotion checks: refuse to certify production if the
+  dashboard or local Docker agent has lab writes enabled or the policy is
+  unknown.
+- Expanded tests for authorization, recovery history, lease expiry,
+  digest/ownership isolation and production-only read-only behavior.
+- No remote execution, container deletion, workload cutover, proxy changes,
+  automatic releases, Docker write enablement, or VPS modification.
+
 ## v0.3.8-dev — Phase A lab-only local deployment execution foundation
 
 - Added a **disabled-by-default** local agent action endpoint and separately

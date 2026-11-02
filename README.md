@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.8-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.9-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -307,6 +307,37 @@ or promoting this version on that VPS does not opt in to lab execution;
 the production verifier checks agent write enablement is false.
 
 See [Phase A local execution ADR/runbook](docs/PHASE_A_LOCAL_EXECUTION.md).
+
+## Phase A recovery and safe VPS test-update workflow (v0.3.9-dev)
+
+The local agent now exposes an **authenticated, read-only, lab-only**
+candidate status endpoint. It inspects only the deterministic lab
+container name and confirms the correct MT Panel job and draft ownership
+labels **and** the exact immutable image digest from the stored job.
+It returns a small allowlist of status values, never Docker inspect JSON.
+
+The owner can inspect unresolved job status through
+`GET /api/deployments/jobs/{id}/recovery`; on explicitly enabled disposable
+hosts, `POST /api/deployments/jobs/{id}/reconcile` requires a matching
+Origin and `X-MTPanel-Approval: INSPECT_AND_HOLD`. An expired RUNNING lease
+is converted to NEEDS_REVIEW with a durable audit record. Neither call
+retries a deployment, restarts a container, switches traffic or unlocks the
+host. Missing/foreign containers and agent outages **do not** authorize
+retries or mark jobs healthy.
+
+To keep the **existing VPS** current for safe read-only dashboard tests,
+use `bash scripts/vps-test-sync.sh --check` to inspect source/live state
+without changing anything, or `bash scripts/vps-test-sync.sh --stage`
+to fast-forward `main` and build/reuse a verified staging directory.
+This **never activates** a release or enables lab Docker writes. It prints
+the exact pinned preflight and explicit promotion commands. After separate
+operator-approved promotion, run the normal post-upgrade verifier;
+preserve the printed rollback backup.
+
+**Do not enable local execution on the production VPS**. The optional lab
+write path still requires a disposable host and its independent enable
+settings. See [Phase A guide](docs/PHASE_A_LOCAL_EXECUTION.md) and
+[existing VPS upgrade guide](docs/EXISTING_VPS_UPGRADE.md).
 
 ## Security boundary
 

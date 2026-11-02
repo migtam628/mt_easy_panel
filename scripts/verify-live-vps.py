@@ -45,6 +45,7 @@ def get_local(port: int, path: str) -> tuple[int, object]:
         "/api/catalog/servers", "/api/server/overview",
         "/api/monitoring/overview", "/api/deployments/readiness",
         "/api/settings/security", "/api/deployments/jobs",
+        "/api/deployments/jobs/00000000000000000000000000000000/recovery",
         "/api/monitoring/diagnostics",
         "/api/deployments/drafts/00000000000000000000000000000000/review",
     ):
@@ -80,6 +81,8 @@ def check_http(expected_version: str) -> list[str]:
             errors.append(f"Local {service} health identity/status mismatch")
             continue
         version = payload.get("version")
+        if service == "mt-panel" and payload.get("lab_execution_enabled") is not False:
+            errors.append("Panel lab Docker writes are enabled or their status is unknown; production VPS must remain read-only")
         if service == "mt-panel-agent" and payload.get("lab_execution_enabled") is not False:
             errors.append("Agent lab Docker writes are enabled or their status is unknown; production VPS must remain read-only")
         if service == "mt-panel" and version != expected_version:
@@ -90,6 +93,7 @@ def check_http(expected_version: str) -> list[str]:
         "/api/auth/me", "/api/catalog/servers", "/api/server/overview",
         "/api/monitoring/overview", "/api/deployments/readiness",
         "/api/settings/security", "/api/deployments/jobs",
+        "/api/deployments/jobs/00000000000000000000000000000000/recovery",
         "/api/monitoring/diagnostics",
         "/api/deployments/drafts/00000000000000000000000000000000/review",
     ):
@@ -168,7 +172,7 @@ def check_revision(path: Path = INSTALL) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", required=True)
-    parser.add_argument("--expected-version", default="0.3.8-dev")
+    parser.add_argument("--expected-version", default="0.3.9-dev")
     args = parser.parse_args()
 
     # This command is deliberately POST-PROMOTION only. A common operator

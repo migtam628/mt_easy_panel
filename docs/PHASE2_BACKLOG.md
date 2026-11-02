@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.8-dev
+# Phase 2 Build Backlog — MT Panel v0.3.9-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -74,3 +74,18 @@ before any deployment write operations.
 reconciliation, previous-digest cutover and rollback, independent remote
 agent deployment permissions, volume safety, registry pull, Git sources
 or Compose. Existing production VPS must not enable lab execution.
+
+## v0.3.9-dev — Recovery evidence and operator-safe VPS staging
+
+- Narrow lab-only, bearer-protected candidate inspection with strict job,
+  draft and image-digest identity; no generic Docker proxy.
+- Owner-only GET recovery and explicitly approved, audited recovery
+  observation. Expired leases become NEEDS_REVIEW, keeping the host locked.
+- Sync helper for the already installed VPS, fast-forwarding source and
+  reusing/staging an exact Git SHA but **never activating it**.
+- Production verifier refuses unknown or enabled lab writes on both panel
+  and agent.
+
+**Next:** real disposable Linux Docker fault-injection integration; add a
+separately audited, proof-backed manual lock-release workflow; design
+service revision handoff with actual previous-digest rollback.

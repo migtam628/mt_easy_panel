@@ -1,6 +1,6 @@
 # MT Panel — Technical Product Specification
 
-**Version:** 0.3.8-dev (Phase A lab-local candidate execution prototype)  
+**Version:** 0.3.9-dev (Phase A lab-local candidate execution prototype)  
 **Project status:** Current VPS read-only pilot and lab-only Phase A execution prototype; the new write path has not been verified on disposable real Docker hardware.  
 **Ownership:** Independently written implementation; not an Easypanel fork, copy of its code, or compatible proprietary API.  
 **Architecture:** One unprivileged control plane, one constrained Docker inventory agent per host.  
@@ -262,3 +262,14 @@ workloads remain untouched. Real deployment cutover/rollback requires
 a future version and disposable Docker host validation.
 
 [Current Phase A design and security boundary](PHASE_A_LOCAL_EXECUTION.md).
+
+## 15. v0.3.9-dev lab reconciliation (read-only Docker observation)
+
+The local agent now supports a lab-only GET candidate observation,
+restricted by original bearer auth, exact job/draft ownership labels and
+an immutable job image digest. A same-origin owner route may record
+explicitly approved reconciliation of unresolved jobs, but never replays
+an uncertain write, releases the per-host fence, or changes Docker.
+This is not automatic recovery, multi-server execution or actual service
+revision rollback. VPS Git staging synchronization remains operator-run,
+never an unattended production deployment system.

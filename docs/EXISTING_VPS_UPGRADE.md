@@ -232,3 +232,41 @@ The post-promotion verifier additionally checks the local Docker agent's
 health reports `lab_execution_enabled: false`, and fails rather than
 claiming a safe deployment if this is missing or true. This does not
 test or authorize the optional disposable-host lab write path.
+
+## v0.3.9 operator-run safe sync and staging
+
+To inspect the running source/installed versions without making changes:
+
+```bash
+cd ~/mt_easy_panel
+bash scripts/vps-test-sync.sh --check
+```
+
+To fast-forward the reviewed main branch and create or reuse a fully tested
+stage (run on the installed VPS as root):
+
+```bash
+cd ~/mt_easy_panel
+bash scripts/vps-test-sync.sh --stage
+```
+
+This updates **only** the Git source checkout and a separate stage under
+/opt. It does **not** activate it, restart any service or touch existing
+Docker containers, Docker sockets, Tailscale Serve, Caddy or ports 80/443.
+
+After staging prints the exact stage path and SHA, run the printed
+`promote-vps.py --check --stage ... --expect-commit ...`. Only after PASS,
+a human may invoke the printed confirmed activation and save the rollback
+directory. Do not run the post-promotion verifier before activation.
+After activation:
+
+```bash
+python3 scripts/verify-live-vps.py --check --expected-version 0.3.9-dev
+python3 scripts/vps-status.py --check
+```
+
+Both panel and agent must report `lab_execution_enabled=false`; the
+verifier fails closed if either is true or unavailable. **Do not enable
+`PANEL_LOCAL_EXECUTION_ENABLED` or `AGENT_LOCAL_EXECUTION_ENABLED`
+on the existing production VPS.** This release has not been validated
+for write-enabled production operations.

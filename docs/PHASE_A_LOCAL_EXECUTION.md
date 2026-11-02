@@ -123,3 +123,29 @@ or production release approval.
 
 No Git/Buildx/Compose, database templates, domain/TLS changes or
 multi-server writes are part of this release.
+
+## v0.3.9 recovery: observation is not permission to retry
+
+A lab agent may serve authenticated `GET /v1/lab/candidates/{job_id}`
+with `draft_id` and the immutable `image_digest` from the saved job.
+Its allowlist inspects one deterministic lab candidate name, validates
+exact ownership labels and image, and returns only a bounded state enum
+with `safe_to_retry=false` and `traffic_switched=false`. It never
+reveals image metadata, mounts, secrets or raw Docker inspect JSON.
+
+Owner `GET /api/deployments/jobs/{id}/recovery` is purely observational.
+The explicit `POST .../reconcile` requires session, exact Origin, lab
+enablement, configured local host binding and
+`X-MTPanel-Approval: INSPECT_AND_HOLD`. An expired RUNNING job or an
+existing NEEDS_REVIEW job receives a durable observation audit; the
+result remains NEEDS_REVIEW. A current RUNNING lease is not interrupted.
+Neither a missing candidate nor a healthy candidate clears the host lock
+or authorizes another execution. Failed inspection returns unavailable,
+not a healthy or absent guess.
+
+For safely keeping the *production dashboard* current for testing, run
+`bash scripts/vps-test-sync.sh --check` or
+`bash scripts/vps-test-sync.sh --stage` on the installed VPS. Stage mode
+only fast-forwards the Git checkout and builds/reuses a tested stage;
+a human still approves exact SHA-pinned activation separately. Never
+set lab execution flags on the production VPS.
