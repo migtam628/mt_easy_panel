@@ -392,10 +392,20 @@ def create_app(settings: Settings | None = None, agent=None):
                                data.idempotency_key, settings.lab_server_id,
                                execute=data.execute)
 
+    @app.post("/api/deployments/jobs/{job_id}/queue")
+    def queue_local_job(job_id: str, request: Request, user=Depends(current_user)):
+        require_write_origin(request)
+        if not settings.lab_execution_enabled or request.headers.get(
+                "X-MTPanel-Approval") != "DEPLOY_TO_DISPOSABLE_HOST":
+            raise HTTPException(403, "Isolated-host deployment approval required")
+        return registry_action(jobs.queue, user["username"],
+                               job_id, settings.lab_server_id)
+
     @app.post("/api/deployments/jobs/{job_id}/run")
     async def run_local_job(job_id: str, request: Request, user=Depends(current_user)):
         require_write_origin(request)
-        if not settings.lab_execution_enabled:
+        if not settings.lab_execution_enabled or request.headers.get(
+                "X-MTPanel-Approval") != "DEPLOY_TO_DISPOSABLE_HOST":
             raise HTTPException(403, "Local deployment execution is disabled")
         try:
             claimed = jobs.claim(user["username"], job_id, settings.lab_server_id)
@@ -410,7 +420,7 @@ def create_app(settings: Settings | None = None, agent=None):
         except Exception:
             # The operation may have reached Docker. Never automatically
             # retry it after an uncertain network/application failure.
-            terminal, code = "FAILED", "agent_unconfirmed"
+            terminal, code = "NEEDS_REVIEW", "agent_unconfirmed"
         try:
             record = jobs.finish(user["username"], job_id, claimed["token"],
                                  terminal, code)
