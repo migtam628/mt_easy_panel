@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from panel.registry import Registry, RegistryError
+from panel.manifests import ServiceDraft
 
 from panel.auth import AuthStore
 
@@ -237,6 +238,16 @@ def create_app(settings: Settings | None = None, agent=None):
                            user=Depends(current_user)):
         require_write_origin(request)
         return registry_action(registry.add_environment, user["username"], project_id, data.name, data.slug)
+
+    @app.get("/api/catalog/environments/{environment_id}/drafts")
+    def list_service_drafts(environment_id: str, user=Depends(current_user)):
+        return registry_action(registry.drafts, user["username"], environment_id)
+
+    @app.post("/api/catalog/environments/{environment_id}/drafts", status_code=201)
+    def create_service_draft(environment_id: str, manifest: ServiceDraft, request: Request,
+                             user=Depends(current_user)):
+        require_write_origin(request)
+        return registry_action(registry.add_draft, user["username"], environment_id, manifest)
 
     @app.get("/api/server/overview")
     async def overview(user=Depends(current_user)):
