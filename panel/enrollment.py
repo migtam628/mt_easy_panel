@@ -68,6 +68,13 @@ class EnrollmentStore:
             """)
 
     @staticmethod
+    def _clear_prior_telemetry(db, server_id: str) -> None:
+        # An old machine's signed snapshot must never be attributed to a
+        # newly enrolled key. The table is optional for older store-only tests.
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='host_snapshots'").fetchone():
+            db.execute("DELETE FROM host_snapshots WHERE server_id=?", (server_id,))
+
+    @staticmethod
     def _owned(db, owner: str, server_id: str):
         row = db.execute("SELECT status FROM servers WHERE id=? AND owner=?",
                          (server_id, owner)).fetchone()
@@ -144,6 +151,7 @@ class EnrollmentStore:
                    enrolled_at=excluded.enrolled_at, revoked_at=NULL,
                    last_sequence=0,last_seen=NULL""",
                        (server_id, key_data, fingerprint, now))
+            self._clear_prior_telemetry(db, server_id)
             db.execute("UPDATE servers SET status='paired' WHERE id=?", (server_id,))
             db.execute("DELETE FROM enrollment_invites WHERE server_id=?", (server_id,))
             self.registry.audit(db, row["owner"], "agent.enrolled", server_id)
@@ -188,5 +196,6 @@ class EnrollmentStore:
             db.execute("UPDATE agent_identities SET revoked_at=? WHERE server_id=?",
                        (now, server_id))
             db.execute("UPDATE servers SET status='revoked' WHERE id=?", (server_id,))
+            self._clear_prior_telemetry(db, server_id)
             self.registry.audit(db, owner, "agent.revoked", server_id)
         return {"server_id": server_id, "status": "revoked"}
