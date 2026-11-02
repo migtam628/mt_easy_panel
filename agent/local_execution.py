@@ -73,6 +73,42 @@ class LocalDockerWriter:
         name = self._name(job_id)
         return self._call("GET", "/containers/" + name + "/json", missing=True)
 
+    def candidate_status(self, job_id: str, draft_id: str) -> dict:
+        """Read-only, sanitized observation of one exact lab-owned candidate.
+
+        A missing container is NOT proof of rollback or safe retry. A
+        same-name container with wrong ownership is always denied.
+        """
+        if not HEX.fullmatch(draft_id):
+            raise ActionDenied("Invalid deployment draft identifier")
+        item = self.inspect(job_id)
+        if item is None:
+            return {"observation": "absent", "present": False,
+                    "safe_to_retry": False, "traffic_switched": False}
+        self._ownership(item, job_id, draft_id)
+        state = item.get("State")
+        if not isinstance(state, dict):
+            raise DockerError("Managed candidate state unavailable")
+        running = state.get("Running")
+        if not isinstance(running, bool):
+            raise DockerError("Managed candidate running state unavailable")
+        health = state.get("Health") or {}
+        if not isinstance(health, dict):
+            raise DockerError("Managed candidate health unavailable")
+        reported = health.get("Status")
+        if not running:
+            status = "stopped"
+        elif reported == "healthy":
+            status = "running_healthy"
+        elif reported == "unhealthy":
+            status = "running_unhealthy"
+        elif reported == "starting":
+            status = "running_starting"
+        else:
+            status = "running_unknown"
+        return {"observation": status, "present": True,
+                "safe_to_retry": False, "traffic_switched": False}
+
     @staticmethod
     def _ownership(item: dict, job_id: str, draft_id: str) -> None:
         labels = item.get("Config", {}).get("Labels") or {}
