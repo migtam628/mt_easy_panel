@@ -92,3 +92,47 @@ def test_promotion_only_controls_mtpanel_services_and_never_tailscale():
     assert "PANEL_COOKIE_SECURE" in src
     assert "ACTIVATE_MT_PANEL" in src
     assert "ROLLBACK_MT_PANEL" in src
+
+
+def test_manual_rollback_does_not_require_current_services_healthy(tmp_path, monkeypatch):
+    m = load_module()
+    install = tmp_path / "mt-panel"
+    backup_root = tmp_path / "backups"
+    backup = backup_root / "mt-panel-backup.abcdef012345"
+    backup_root.mkdir()
+    backup.mkdir()
+    install.mkdir()
+    (install / "version").write_text("new")
+    (backup / "code").mkdir()
+    (backup / "code" / "version").write_text("old")
+    (backup / "ready").write_text("ready")
+    database = tmp_path / "panel.db"
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE state (value TEXT)")
+        db.execute("INSERT INTO state VALUES ('new')")
+    snapshot = backup / "panel.db"
+    with sqlite3.connect(snapshot) as db:
+        db.execute("CREATE TABLE state (value TEXT)")
+        db.execute("INSERT INTO state VALUES ('old')")
+    private_config = tmp_path / "mt-panel.env"
+    private_config.write_text("secret=value\n")
+
+    monkeypatch.setattr(m, "INSTALL", install)
+    monkeypatch.setattr(m, "DATA", database)
+    monkeypatch.setattr(m, "ENV", private_config)
+    monkeypatch.setattr(m, "BACKUPS", backup_root)
+    monkeypatch.setattr(m, "directory", lambda *args: backup)
+    monkeypatch.setattr(m, "command", lambda *args, **kwargs:
+                        "/etc/systemd/system/" + args[-1])
+    monkeypatch.setattr(m, "stop_mtpanel", lambda: None)
+    monkeypatch.setattr(m, "start_mtpanel", lambda: None)
+    monkeypatch.setattr(m, "stage_smoke", lambda: None)
+    monkeypatch.setattr(m, "verify_services", lambda: None)
+
+    m.rollback(backup)
+    assert (install / "version").read_text() == "old"
+    assert (backup / "replaced-current" / "version").read_text() == "new"
+    with sqlite3.connect(database) as db:
+        assert db.execute("SELECT value FROM state").fetchone() == ("old",)
+    with sqlite3.connect(backup / "pre-rollback.db") as db:
+        assert db.execute("SELECT value FROM state").fetchone() == ("new",)
