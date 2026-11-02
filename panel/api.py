@@ -13,6 +13,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from panel.registry import Registry, RegistryError
 
 from panel.auth import AuthStore
 
@@ -90,6 +91,22 @@ class AgentClient:
             raise HTTPException(503, "Host agent sent an invalid response. Check both service versions.") from exc
 
 
+class ServerData(BaseModel):
+    name: str = Field(min_length=2, max_length=72)
+    notes: str = Field(default="", max_length=500)
+
+
+class ProjectData(BaseModel):
+    name: str = Field(min_length=2, max_length=72)
+    slug: str = Field(min_length=2, max_length=48)
+    server_id: str | None = None
+
+
+class EnvironmentData(BaseModel):
+    name: str = Field(min_length=2, max_length=72)
+    slug: str = Field(min_length=2, max_length=48)
+
+
 class LoginData(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
@@ -99,8 +116,9 @@ def create_app(settings: Settings | None = None, agent=None):
     settings = settings or Settings.from_env()
     settings.validate()
     store = AuthStore(settings.db_path)
+    registry = Registry(settings.db_path)
     agent = agent or AgentClient(settings)
-    app = FastAPI(title="MT Panel", version="0.1.2", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="MT Panel", version="0.2.0-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
     # In-memory login throttling is a Phase 1 local guard only; production needs
     # persistent, multi-instance throttling plus MFA and reverse-proxy controls.
@@ -138,7 +156,7 @@ def create_app(settings: Settings | None = None, agent=None):
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "service": "mt-panel", "version": "0.1.2"}
+        return {"ok": True, "service": "mt-panel", "version": "0.2.0-dev"}
 
     @app.get("/api/setup")
     def setup():
@@ -180,6 +198,45 @@ def create_app(settings: Settings | None = None, agent=None):
     @app.get("/api/audit/events")
     def audit_events(limit: int = Query(default=50, ge=1, le=100), user=Depends(current_user)):
         return {"data": store.list_audit_events(limit)}
+
+    def registry_action(fn, *args):
+        try:
+            return {"data": fn(*args)}
+        except RegistryError as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+
+    def require_write_origin(request: Request):
+        # Every cookie-authenticated mutation requires explicit matching Origin.
+        if request.headers.get("Origin") != settings.origin:
+            raise HTTPException(403, "Same-origin request required")
+
+    @app.get("/api/catalog/servers")
+    def list_servers(user=Depends(current_user)):
+        return registry_action(registry.servers, user["username"])
+
+    @app.post("/api/catalog/servers", status_code=201)
+    def create_server(data: ServerData, request: Request, user=Depends(current_user)):
+        require_write_origin(request)
+        return registry_action(registry.add_server, user["username"], data.name, data.notes)
+
+    @app.get("/api/catalog/projects")
+    def list_projects(user=Depends(current_user)):
+        return registry_action(registry.projects, user["username"])
+
+    @app.post("/api/catalog/projects", status_code=201)
+    def create_project(data: ProjectData, request: Request, user=Depends(current_user)):
+        require_write_origin(request)
+        return registry_action(registry.add_project, user["username"], data.name, data.slug, data.server_id)
+
+    @app.get("/api/catalog/projects/{project_id}/environments")
+    def list_environments(project_id: str, user=Depends(current_user)):
+        return registry_action(registry.environments, user["username"], project_id)
+
+    @app.post("/api/catalog/projects/{project_id}/environments", status_code=201)
+    def create_environment(project_id: str, data: EnvironmentData, request: Request,
+                           user=Depends(current_user)):
+        require_write_origin(request)
+        return registry_action(registry.add_environment, user["username"], project_id, data.name, data.slug)
 
     @app.get("/api/server/overview")
     async def overview(user=Depends(current_user)):
