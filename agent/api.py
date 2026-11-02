@@ -116,6 +116,22 @@ def create_app(reader=None, token: str | None = None, *,
             raise HTTPException(422, "Invalid container ID")
         return run(reader.logs, container_id, tail)
 
+    @app.get("/v1/lab/candidates/{job_id}", dependencies=[Depends(authorize)])
+    def candidate_recovery_status(job_id: str, draft_id: str):
+        # Available only on explicitly opted-in disposable lab agents.
+        # No Docker writes; return no raw inspect, image, secrets or labels.
+        if not lab_enabled:
+            raise HTTPException(403, "Local execution disabled")
+        try:
+            if len(job_id) != 32 or any(c not in "0123456789abcdef" for c in job_id):
+                raise ActionDenied("Invalid managed job identifier")
+            return {"data": writer.candidate_status(job_id, draft_id)}
+        except ActionDenied as exc:
+            agent_log.warning("local_candidate_inspection_rejected job=%s", job_id[:32])
+            raise HTTPException(409, str(exc)) from exc
+        except DockerError as exc:
+            raise HTTPException(503, "Local candidate inspection unavailable") from exc
+
     @app.post("/v1/lab/actions", dependencies=[Depends(authorize)])
     def local_action(action: LocalAction,
                      x_mtpanel_signature: str | None = Header(default=None)):
