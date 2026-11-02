@@ -7,6 +7,7 @@ const descriptions = {
   images: ['Container images', 'Available local Docker images.', 'Images'],
   networks: ['Networks', 'Docker network inventory.', 'Network inventory'],
   volumes: ['Volumes', 'Named persistent Docker volumes (mount paths hidden).', 'Volume inventory'],
+  activity: ['Activity', 'Recent administrative sign-in and sign-out events.', 'Security audit log'],
 };
 async function api(path, options = {}) {
   const resp = await fetch(path, {credentials: 'same-origin', cache: 'no-store', ...options});
@@ -104,6 +105,13 @@ async function refresh() {
       document.querySelector('.status-dot').classList.add('ok');
       $('demo-banner').classList.toggle('hidden', ov.data.source !== 'demo');
       $('table-subtitle').textContent = `${ov.data.hostname} · Docker ${ov.data.docker_version}`;
+    } else if (view === 'activity') {
+      renderStats(null);
+      const data = (await api('/api/audit/events?limit=100')).data;
+      tableRows(['Time', 'Actor', 'Action', 'Result', 'Source'],
+        data.map(x => plainRow([new Date(x.timestamp * 1000).toLocaleString(),
+          x.actor, x.action, x.result, x.source_ip || '—'])));
+      $('table-subtitle').textContent = 'Owner-visible, locally persisted security events.';
     } else {
       renderStats(null);
       const data = (await api(`/api/server/${view}`)).data;
@@ -117,8 +125,10 @@ async function refresh() {
     }
     $('updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
   } catch (err) {
-    $('agent-state').textContent = 'Unavailable';
-    document.querySelector('.status-dot').classList.remove('ok');
+    if (view !== 'activity') {
+      $('agent-state').textContent = 'Unavailable';
+      document.querySelector('.status-dot').classList.remove('ok');
+    }
     setMessage(err.status === 401 ? 'Session ended. Please sign in again.' : err.message);
     if (err.status === 401) showLogin();
   } finally { $('refresh').disabled = false; }

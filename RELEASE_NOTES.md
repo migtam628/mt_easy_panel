@@ -1,3 +1,11 @@
+## v0.1.2 — Authentication audit foundation
+
+- Added SQLite audit event storage with backwards-compatible `CREATE TABLE IF NOT EXISTS` migration.
+- Recorded administrator bootstrap, successful and failed sign-ins, and sign-outs without storing passwords, cookies or agent tokens.
+- Added authenticated, bounded `GET /api/audit/events?limit=50` and a read-only Activity dashboard view.
+- Added tests for access control, persistence across restarts, limit bounds and event contents.
+- No Docker write operations or network exposure introduced. This is a partial MTP-02 milestone, not complete deployment audit coverage.
+
 # Release notes
 
 ## v0.1.1 — macOS host-agent connectivity fixes

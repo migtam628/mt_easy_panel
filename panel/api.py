@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -100,7 +100,7 @@ def create_app(settings: Settings | None = None, agent=None):
     settings.validate()
     store = AuthStore(settings.db_path)
     agent = agent or AgentClient(settings)
-    app = FastAPI(title="MT Panel", version="0.1.1", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="MT Panel", version="0.1.2", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
     # In-memory login throttling is a Phase 1 local guard only; production needs
     # persistent, multi-instance throttling plus MFA and reverse-proxy controls.
@@ -138,7 +138,7 @@ def create_app(settings: Settings | None = None, agent=None):
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "service": "mt-panel", "version": "0.1.1"}
+        return {"ok": True, "service": "mt-panel", "version": "0.1.2"}
 
     @app.get("/api/setup")
     def setup():
@@ -157,7 +157,7 @@ def create_app(settings: Settings | None = None, agent=None):
         if len(recent) >= 10:
             raise HTTPException(429, "Too many attempts; try later")
         recent.append(now)
-        token = store.login(data.username, data.password)
+        token = store.login(data.username, data.password, client_id)
         if token is None:
             raise HTTPException(401, "Invalid credentials")
         recent.clear()
@@ -168,13 +168,18 @@ def create_app(settings: Settings | None = None, agent=None):
     @app.post("/api/auth/logout")
     def logout(request: Request, response: Response, user=Depends(current_user)):
         verify_origin(request)
-        store.logout(request.cookies.get(COOKIE))
+        store.logout(request.cookies.get(COOKIE), user["username"],
+                     request.client.host if request.client else "unknown")
         response.delete_cookie(COOKIE, path="/", secure=settings.cookie_secure, samesite="strict")
         return {"ok": True}
 
     @app.get("/api/auth/me")
     def me(user=Depends(current_user)):
         return user
+
+    @app.get("/api/audit/events")
+    def audit_events(limit: int = Query(default=50, ge=1, le=100), user=Depends(current_user)):
+        return {"data": store.list_audit_events(limit)}
 
     @app.get("/api/server/overview")
     async def overview(user=Depends(current_user)):

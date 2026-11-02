@@ -1,8 +1,8 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.1.1`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.1.2`.
 
-MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current Phase 1 is a functioning read-only pilot**: admin login, host information, containers, images, networks, volumes and bounded container logs. It has not been installed on any user VPS or tested against a live Docker daemon in this environment.
+MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current Phase 1 is a functioning read-only pilot**: admin login, host information, containers, images, networks, volumes, bounded container logs, and a persistent authentication audit trail. It has not been installed on any user VPS or tested against a live Docker daemon in this environment.
 
 ## Quick start
 
@@ -59,6 +59,7 @@ mt-panel/
 | Area | v0.1.0 | Planned |
 |---|---|---|
 | Admin login | Yes, offline bootstrap | Multi-user RBAC, MFA |
+| Audit events | Local SQLite login/logout/bootstrap events and owner-only activity page | Configuration/job events, export and retention |
 | Host health | Capacity and counts | Live utilization graphs |
 | Container inspection | Name/image/state/ports/logs | Start/stop/restart with authorization |
 | Images, networks, volumes | Read-only listing | Managed lifecycle |

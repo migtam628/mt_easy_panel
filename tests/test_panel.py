@@ -93,3 +93,36 @@ def test_static_site_and_headers(tmp_path):
     assert r.headers["X-Frame-Options"] == "DENY"
     assert "script-src 'self'" in r.headers["Content-Security-Policy"]
     assert client.get("/assets/app.js").status_code == 200
+
+def test_durable_auth_audit_and_owner_only_endpoint(tmp_path):
+    client, agent, settings = setup(tmp_path)
+    assert client.get("/api/audit/events").status_code == 401
+    store = AuthStore(settings.db_path)
+    store.create_admin("admin", "A totally unique passphrase 2026!")
+    assert client.post("/api/auth/login", json={"username": "admin", "password": "wrong password"},
+                       headers={"Origin": "http://127.0.0.1:8086"}).status_code == 401
+    sign_in(client)
+    events = client.get("/api/audit/events").json()["data"]
+    assert [(e["action"], e["result"]) for e in events] == [
+        ("auth.login", "success"), ("auth.login", "failure"),
+        ("auth.bootstrap", "success")]
+    assert events[0]["actor"] == "admin"
+    assert events[0]["source_ip"] == "testclient"
+    assert "password" not in str(events)
+    assert client.get("/api/audit/events?limit=1").json()["data"] == events[:1]
+    assert client.get("/api/audit/events?limit=101").status_code == 422
+    assert client.post("/api/auth/logout", headers={"Origin": "http://127.0.0.1:8086"}).status_code == 200
+    assert client.get("/api/audit/events").status_code == 401
+    after_restart = AuthStore(settings.db_path).list_audit_events()
+    assert after_restart[0]["action"] == "auth.logout"
+    assert after_restart[0]["result"] == "success"
+
+
+def test_audit_migration_preserves_phase_one_sessions(tmp_path):
+    client, _, settings = setup(tmp_path)
+    store = AuthStore(settings.db_path)
+    store.create_admin("admin", "A totally unique passphrase 2026!")
+    sign_in(client)
+    AuthStore(settings.db_path)  # Repeat schema setup, as happens on restart.
+    assert client.get("/api/auth/me").status_code == 200
+    assert client.get("/api/audit/events").status_code == 200

@@ -35,6 +35,16 @@ class AuthStore:
                   expires_at INTEGER NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
+                CREATE TABLE IF NOT EXISTS audit_events (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  created_at INTEGER NOT NULL,
+                  actor TEXT NOT NULL,
+                  action TEXT NOT NULL,
+                  result TEXT NOT NULL,
+                  source_ip TEXT NOT NULL DEFAULT ''
+                );
+                CREATE INDEX IF NOT EXISTS idx_audit_events_recent
+                  ON audit_events(id DESC);
             """)
         # SQLite uses process umask at creation. Protect credentials and session hashes.
         os.chmod(self.path, 0o600)
@@ -48,6 +58,25 @@ class AuthStore:
     def _hash_password(password: str, salt: bytes) -> str:
         return hashlib.scrypt(password.encode("utf-8"), salt=salt, n=2**14, r=8, p=1).hex()
 
+    @staticmethod
+    def _audit(conn, actor: str, action: str, result: str, source_ip: str = ""):
+        # Explicit event names only; never persist passwords, tokens or cookies.
+        conn.execute(
+            "INSERT INTO audit_events(created_at,actor,action,result,source_ip) VALUES(?,?,?,?,?)",
+            (int(time.time()), actor[:64], action, result, source_ip[:64]),
+        )
+
+    def list_audit_events(self, limit: int = 50) -> list[dict]:
+        if not 1 <= limit <= 100:
+            raise ValueError("Audit event limit must be 1-100")
+        with self._db() as conn:
+            rows = conn.execute(
+                "SELECT id,created_at,actor,action,result,source_ip "
+                "FROM audit_events ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [dict(zip(("id", "timestamp", "actor", "action", "result", "source_ip"), row))
+                for row in rows]
+
     def create_admin(self, username: str, password: str):
         if not (3 <= len(username) <= 64 and username.isascii() and
                 all(c.isalnum() or c in "_-" for c in username)):
@@ -58,23 +87,26 @@ class AuthStore:
         with self._db() as conn:
             conn.execute("INSERT INTO users(username, salt, password_hash) VALUES (?, ?, ?)",
                          (username, salt.hex(), self._hash_password(password, salt)))
+            self._audit(conn, username, "auth.bootstrap", "success")
 
     def is_setup(self) -> bool:
         with self._db() as conn:
             return conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is not None
 
-    def login(self, username: str, password: str) -> str | None:
+    def login(self, username: str, password: str, source_ip: str = "") -> str | None:
         with self._db() as conn:
             row = conn.execute("SELECT id,salt,password_hash FROM users WHERE username=?", (username,)).fetchone()
             # Always perform a scrypt operation to reduce username enumeration timing differences.
             salt = bytes.fromhex(row[1]) if row else b"\x00" * 16
             candidate = self._hash_password(password, salt)
             if not row or not hmac.compare_digest(candidate, row[2]):
+                self._audit(conn, username, "auth.login", "failure", source_ip)
                 return None
             token = secrets.token_urlsafe(48)
             conn.execute("DELETE FROM sessions WHERE expires_at < ?", (int(time.time()),))
             conn.execute("INSERT INTO sessions(token_hash, user_id, expires_at) VALUES (?,?,?)",
                          (self._token_hash(token), row[0], int(time.time()) + SESSION_TTL))
+            self._audit(conn, username, "auth.login", "success", source_ip)
             return token
 
     @staticmethod
@@ -92,8 +124,9 @@ class AuthStore:
                 return None
             return {"username": row[0], "role": "owner"}
 
-    def logout(self, token: str | None):
+    def logout(self, token: str | None, actor: str = "", source_ip: str = ""):
         if not token:
             return
         with self._db() as conn:
             conn.execute("DELETE FROM sessions WHERE token_hash=?", (self._token_hash(token),))
+            self._audit(conn, actor, "auth.logout", "success", source_ip)

@@ -5,7 +5,7 @@ Order matters: host identity and API hardening precede all write actions.
 | ID | Priority | Deliverable | Acceptance criterion |
 |---|---|---|---|
 | MTP-01 | P0 | PostgreSQL schema and migrations | Isolated migration test; non-destructive import of Phase 1 owner data |
-| MTP-02 | P0 | Durable audit log | Successful/failed login, configuration and job actions have actor, target and timestamp |
+| MTP-02 | P0 | Durable audit log | **In progress (v0.1.2):** persistent bootstrap/login/logout audit completed; configuration/job audit, retention, and PostgreSQL migration remain |
 | MTP-03 | P0 | Trusted agent enrollment | Rotate-able credential per server, private transport, explicit host identity and revocation |
 | MTP-04 | P0 | Server registry | Add/disable/reconnect hosts with heartbeat; no dynamic URL SSRF |
 | MTP-05 | P0 | Project/resource ownership | Owner scoped to server/project and all API queries enforce server ownership |
