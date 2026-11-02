@@ -1,3 +1,21 @@
+## v0.3.5-dev — Working Monitoring, Deployments preview and Security Settings
+
+- Enabled Monitoring in the sidebar with an on-demand overview of local
+  read-only Docker capacity and owner-scoped signed fleet warnings.
+- Enabled Deployments as an explicit **non-executing** preparation ledger:
+  saved draft image digests, project/environment context, optional server
+  assignments and typed deployment blockers. No jobs or deployments are
+  generated; remote Docker access remains disabled.
+- Enabled Security Settings as a safe, owner-only read-only disclosure of
+  effective security policies and planned missing protections (MFA/RBAC).
+- Added dedicated authenticated APIs for these three pages with no new
+  Docker write or job execution paths.
+- Added integration tests for authentication, owner isolation, offline
+  local host behavior, no sensitive metadata disclosure and forbidden
+  mutation methods.
+- Retained Tailscale-only browser access, loopback-only local Docker
+  agent and the existing version-pinned, reversible staged promotion.
+
 ## v0.3.4-dev — Signed host-health history and on-demand fleet warnings
 
 - Added bounded, chronological signed host-report disk history to SQLite,

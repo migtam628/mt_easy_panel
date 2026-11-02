@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.4-dev
+# Phase 2 Build Backlog — MT Panel v0.3.5-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -22,3 +22,17 @@ Order matters: host identity and API hardening precede all write actions.
 ## Hard gate before first write operation
 
 A production write action may not merge unless it has: (1) server-side owner authorization, (2) durable audit events, (3) a bounded declarative manifest, (4) agent-side enforcement, (5) idempotency/locking, (6) health validation, (7) rollback procedure, and (8) tests against a **disposable** Docker host. Existing production containers must remain untouched during development.
+
+## Pilot operational UI — completed v0.3.5-dev
+
+The Monitoring, Deployments, and Settings sidebar screens now offer
+non-destructive reads. Monitoring presents existing live local agent
+overview and signed fleet signals, not historical Docker metrics or
+automated alert delivery. Deployments lists metadata-only draft definitions
+and explicit blockers, **never executable jobs**. Settings discloses
+owner-visible policy, not secrets or live configuration mutation.
+
+**Still blocked:** remote Docker collection and all container writes require
+a separate disposable test host, privilege separation, agent identity
+binding and the eight deployment safety criteria above. Monitoring
+notifications, MFA, multi-user RBAC and real deployment jobs are not shipped.

@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.4-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.5-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -192,6 +192,37 @@ background checks and send no notifications. Revoking or replacing an
 identity deletes its prior report history. The control plane never connects
 to enrolled hosts. See [fleet monitoring guide](docs/FLEET_HEALTH_MONITORING.md)
 for thresholds, retention and limitations.
+
+## Operational pages (v0.3.5-dev)
+
+The previously disabled **Monitoring**, **Deployments**, and **Settings**
+navigation items now work, but **none perform host mutations**:
+
+- **Monitoring:** on-demand local Docker overview (via the existing
+  loopback-only, GET-only agent) alongside per-owner signed fleet health,
+  staleness and warning counts. If the local agent is unavailable, the
+  fleet data still renders with a truthful offline indication. No
+  background polling, notifications, or automatic host interventions.
+- **Deployments:** owner-only, read-only inventory of the first 200 saved
+  digest-pinned application drafts, with their project, environment,
+  optional server assignment and explicit blockers. Every item is marked
+  `draft_only` / `executable: false`. No deployment ledger of actual
+  executions exists, and no deploy/restart/Compose command is offered.
+- **Settings:** a read-only security posture view showing HTTPS origin,
+  session cookie policy, local agent isolation, disabled Docker writes,
+  absence of MFA/multi-user RBAC and other production prerequisites.
+  Never includes the agent token, private identity keys, passwords,
+  database paths, or session cookies.
+
+The APIs `GET /api/monitoring/overview`,
+`GET /api/deployments/readiness`, and
+`GET /api/settings/security` require owner authentication.
+They do not expose unscoped host access or mutate any remote resources.
+
+The user's existing v0.3.4-dev VPS is **not** automatically upgraded when
+commits land in GitHub. For each release use the
+[staged upgrade runbook](docs/EXISTING_VPS_UPGRADE.md), verify the exact
+new staging commit and explicitly promote only that release.
 
 ## Security boundary
 

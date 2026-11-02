@@ -160,6 +160,28 @@ Use the tailnet HTTPS hostname shown by `tailscale serve status`, on port
 Never configure Tailscale Funnel for MT Panel. Do not use
 `tailscale serve reset` on a host that already serves other applications.
 
+## Upgrading to the v0.3.5 operational screens
+
+After a release with v0.3.5-dev is pushed and CI is green, pull the source
+on the existing VPS, use `bash scripts/upgrade-vps.sh --stage` and record
+the **newly printed** directory. Compare its `.staged-commit` to the exact
+commit you intend to deploy. Do not reuse an older staged directory because
+it has passed checks in a different release.
+
+Run `python3 scripts/promote-vps.py --check --stage /opt/mt-panel-stage.EXACT_ID`
+and review the output before the explicitly confirmed `--activate`
+operation. Activation briefly stops only the MT Panel services, captures
+a private SQLite/code backup, and runs local health/auth checks.
+After successful activation, run:
+
+```bash
+python3 scripts/verify-live-vps.py --check --expected-version 0.3.5-dev
+```
+
+A verifier run **before activation** should fail on the older live version;
+that is not a staging failure. Nothing in this upgrade enables Docker write
+operations, deployment jobs, automatic alerts or remote agent execution.
+
 ## Current development limits
 
 The UI and agent are pilot-grade. Docker inventory is read-only and the agent

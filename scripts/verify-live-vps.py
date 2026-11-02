@@ -41,6 +41,8 @@ def get_local(port: int, path: str) -> tuple[int, object]:
     if path not in (
         "/health", "/api/health", "/api/auth/me",
         "/api/catalog/servers", "/api/server/overview",
+        "/api/monitoring/overview", "/api/deployments/readiness",
+        "/api/settings/security",
     ):
         raise ValueError("Unrecognized read-only health probe")
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
@@ -78,7 +80,11 @@ def check_http(expected_version: str) -> list[str]:
             errors.append(f"Dashboard version is {version!r}; expected {expected_version!r} (not promoted)")
         else:
             print(f"PASS: {service} health (version {version})")
-    for path in ("/api/auth/me", "/api/catalog/servers", "/api/server/overview"):
+    for path in (
+        "/api/auth/me", "/api/catalog/servers", "/api/server/overview",
+        "/api/monitoring/overview", "/api/deployments/readiness",
+        "/api/settings/security",
+    ):
         try:
             code, _ = get_local(8086, path)
         except (OSError, ValueError, TimeoutError):
@@ -154,7 +160,7 @@ def check_revision(path: Path = INSTALL) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", required=True)
-    parser.add_argument("--expected-version", default="0.3.4-dev")
+    parser.add_argument("--expected-version", default="0.3.5-dev")
     args = parser.parse_args()
     errors = []
     errors.extend(check_http(args.expected_version))
