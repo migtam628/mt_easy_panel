@@ -383,10 +383,9 @@ def create_app(settings: Settings | None = None, agent=None):
     def create_local_job(draft_id: str, data: LocalJobRequest, request: Request,
                          user=Depends(current_user)):
         require_write_origin(request)
-        if data.execute and (not settings.lab_execution_enabled
-                             or data.confirmation != "DEPLOY_TO_DISPOSABLE_HOST"):
-            raise HTTPException(403, "Local Docker execution is disabled or not approved")
-        if not data.execute and data.confirmation:
+        if data.execute:
+            raise HTTPException(403, "Create a DRAFT first, then approve QUEUED separately")
+        if data.confirmation:
             raise HTTPException(422, "Dry-run jobs do not accept execution confirmation")
         return registry_action(jobs.create, user["username"], draft_id,
                                data.idempotency_key, settings.lab_server_id,
