@@ -205,15 +205,19 @@ class LocalJobs:
                         local_server_id: str) -> dict:
         """Return a scoped target without releasing a lease or inspecting Docker."""
         with self.registry.connect() as db:
-            row = db.execute("""SELECT id,draft_id,state,local_server_id,lease_until
+            row = db.execute("""SELECT id,draft_id,state,local_server_id,lease_until,manifest_json
                 FROM local_deployment_jobs WHERE id=? AND owner=?""",
                 (job_id, owner)).fetchone()
         if row is None:
             raise RegistryError("Job not found", 404)
         if row["local_server_id"] != local_server_id:
             raise RegistryError("Job is not bound to the configured local lab host", 409)
+        try:
+            digest_image = ServiceDraft.model_validate_json(row["manifest_json"]).image
+        except ValueError as exc:
+            raise RegistryError("Saved lab manifest is invalid", 409) from exc
         return {"job_id": row["id"], "draft_id": row["draft_id"],
-                "state": row["state"],
+                "image_digest": digest_image, "state": row["state"],
                 "lease_expired": (row["state"] == "RUNNING"
                                   and row["lease_until"] is not None
                                   and row["lease_until"] < int(time.time()))}
