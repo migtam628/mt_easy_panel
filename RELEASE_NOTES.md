@@ -6,6 +6,7 @@
 - Restricted new mutations to authenticated same-origin requests and recorded creation audit events in the same SQLite transaction.
 - Validated strict image digest, container port, conservative CPU/RAM limits and read-only root filesystem; reject unknown dangerous Docker settings.
 - Added registry/manifest regression tests and closed database connections deterministically.
+- Added non-executing restricted Compose YAML compatibility preview, validating digest-pinned images, read-only filesystems and internal-only ports. Unsafe or unsupported directives are rejected, including privileged access, host mounts, published ports, interpolated variables and build commands.
 - **No remote server pairing, deployment execution, docker writes, arbitrary commands, published ports or proxy reconfiguration.**
 - Status: pre-release development build; not yet validated against an owner's live Docker host.
 
