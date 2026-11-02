@@ -72,6 +72,7 @@ class Settings:
         if self.lab_execution_enabled:
             if (os.environ.get("PANEL_EXECUTION_LAB_ACK") != "I_ACCEPT_DISPOSABLE_HOST_ONLY"
                     or len(self.lab_execution_key) < 32
+                    or self.lab_execution_key == self.agent_token
                     or len(self.lab_server_id) != 32
                     or any(x not in "0123456789abcdef" for x in self.lab_server_id)):
                 raise ValueError("Local execution requires disposable-host acknowledgement, "
