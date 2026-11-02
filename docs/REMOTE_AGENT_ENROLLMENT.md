@@ -23,7 +23,10 @@ control plane. Do not treat a "paired" identity as a Docker-managed host.
    `paired`. An audit event records this event without any secret.
 5. The agent may send **signed, monotonic heartbeats** on demand. Clock skew
    over two minutes, signature mismatches and repeated sequences are rejected.
-6. The owner may **revoke** the identity and pending invitations from the
+6. The dashboard distinguishes `never_seen`, `recent` (signed within 180
+   seconds), `stale` and `revoked` heartbeat status. These are **cryptographic
+   identity signals, not proof that Docker is healthy or even installed**.
+7. The owner may **revoke** the identity and pending invitations from the
    Servers dashboard. The previous private key no longer authorizes heartbeats.
 
 Identity credentials are scoped to each server and are never stored as
