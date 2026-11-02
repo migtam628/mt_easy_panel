@@ -117,7 +117,8 @@ def create_app(reader=None, token: str | None = None, *,
         return run(reader.logs, container_id, tail)
 
     @app.get("/v1/lab/candidates/{job_id}", dependencies=[Depends(authorize)])
-    def candidate_recovery_status(job_id: str, draft_id: str):
+    def candidate_recovery_status(job_id: str, draft_id: str,
+                                  image_digest: str):
         # Available only on explicitly opted-in disposable lab agents.
         # No Docker writes; return no raw inspect, image, secrets or labels.
         if not lab_enabled:
@@ -125,7 +126,7 @@ def create_app(reader=None, token: str | None = None, *,
         try:
             if len(job_id) != 32 or any(c not in "0123456789abcdef" for c in job_id):
                 raise ActionDenied("Invalid managed job identifier")
-            return {"data": writer.candidate_status(job_id, draft_id)}
+            return {"data": writer.candidate_status(job_id, draft_id, image_digest)}
         except ActionDenied as exc:
             agent_log.warning("local_candidate_inspection_rejected job=%s", job_id[:32])
             raise HTTPException(409, str(exc)) from exc
