@@ -163,3 +163,51 @@ def test_fleet_response_limit_and_no_remote_actions(tmp_path):
     assert len(result["servers"]) == 500
     assert result["truncated"] is True
     assert result["counts"]["unpaired"] == 500
+
+
+def test_fleet_warnings_from_signed_reports_and_staleness(tmp_path):
+    client, db = setup(tmp_path)
+    sid = create_server(client)
+    key = enroll(client, sid)
+    assert heartbeat(client, sid, key, 1).status_code == 200
+    assert host_report(client, sid, key, 2).status_code == 200
+    result = client.get("/api/fleet/summary").json()["data"]
+    assert result["counts"]["warning_servers"] == 0
+    assert result["counts"]["critical_servers"] == 0
+    assert result["servers"][0]["warnings"] == []
+
+    # Thresholds use last signed self-reported disk capacity, not Docker.
+    from protocol.host_snapshot import HostSnapshot, host_report_message
+    for seq, pct, severity in [(3, 15, "warning"), (4, 5, "critical")]:
+        snapshot = HostSnapshot.model_validate({
+            **SAMPLE, "disk_free_bytes": pct * SAMPLE["disk_total_bytes"] // 100
+        })
+        timestamp = int(time.time())
+        body = {
+            "sequence": seq, "timestamp": timestamp, "snapshot": snapshot.model_dump(),
+            "signature": b64(key.sign(host_report_message(sid, seq, timestamp, snapshot)))
+        }
+        assert client.post(f"/api/agents/{sid}/host-report",
+                           json=body).status_code == 200
+        result = client.get("/api/fleet/summary").json()["data"]
+        assert result["counts"]["warning_servers"] == 1
+        assert result["servers"][0]["warnings"][0]["code"] == "disk_low"
+        assert result["servers"][0]["warnings"][0]["severity"] == severity
+    assert result["counts"]["critical_servers"] == 1
+
+    with sqlite3.connect(db) as conn:
+        conn.execute("UPDATE agent_identities SET last_seen=? WHERE server_id=?",
+                     (int(time.time()) - 500, sid))
+        conn.execute("UPDATE host_snapshots SET recorded_at=? WHERE server_id=?",
+                     (int(time.time()) - 500, sid))
+    result = client.get("/api/fleet/summary").json()["data"]
+    codes = {w["code"] for w in result["servers"][0]["warnings"]}
+    assert codes == {"heartbeat_stale", "host_report_stale", "disk_low"}
+    assert result["counts"]["critical_servers"] == 1
+    assert result["counts"]["heartbeat_stale"] == 1
+
+    assert client.post(f"/api/catalog/servers/{sid}/revoke", headers=ORIGIN).status_code == 200
+    result = client.get("/api/fleet/summary").json()["data"]
+    assert result["servers"][0]["warnings"] == []
+    assert result["counts"]["warning_servers"] == 0
+    assert result["counts"]["critical_servers"] == 0
