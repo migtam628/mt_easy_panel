@@ -82,6 +82,31 @@
       <button type="submit" class="button primary">Save configuration</button>
     </form>
   </dialog>
+  <dialog id="project-dialog" aria-labelledby="project-dialog-title">
+    <div class="dialog-head"><div><div class="eyebrow">CONFIGURATION ONLY — NO DEPLOYMENTS</div><h2 id="project-dialog-title">Project workspace</h2></div><button id="close-project" class="button ghost" type="button">Close ×</button></div>
+    <div class="project-config">
+      <h3>Environments</h3>
+      <div id="project-environments" class="config-list">No environments configured.</div>
+      <form id="environment-form" class="inline-config-form">
+        <input id="environment-name" required minlength="2" maxlength="72" placeholder="Environment name">
+        <input id="environment-slug" required minlength="2" maxlength="48" pattern="[a-z][a-z0-9-]{1,47}" placeholder="environment-slug">
+        <button type="submit" class="button primary">Add environment</button>
+      </form>
+      <h3>Image deployment drafts</h3>
+      <p class="muted small">Drafts are stored but cannot launch containers. Images must use a full sha256 digest; no host ports or mounts are accepted.</p>
+      <label for="draft-environment">Environment</label>
+      <select id="draft-environment"><option value="">Choose environment</option></select>
+      <div id="project-drafts" class="config-list">Choose an environment to view drafts.</div>
+      <form id="draft-form" class="inline-config-form">
+        <input id="draft-name" required minlength="2" maxlength="72" placeholder="Service name">
+        <input id="draft-slug" required minlength="2" maxlength="48" pattern="[a-z][a-z0-9-]{1,47}" placeholder="service-slug">
+        <input id="draft-image" required placeholder="registry/image@sha256:...">
+        <input id="draft-port" required type="number" min="1" max="65535" placeholder="Container port">
+        <button type="submit" class="button primary">Save draft</button>
+      </form>
+      <p class="error" id="project-error" role="alert"></p>
+    </div>
+  </dialog>
   <dialog id="log-dialog" aria-labelledby="log-title">
     <div class="dialog-head"><div><div class="eyebrow">CONTAINER LOGS · LAST 80 LINES</div><h2 id="log-title">Logs</h2></div><button class="button ghost" id="close-log">Close ×</button></div>
     <pre id="log-output">Loading logs…</pre>
