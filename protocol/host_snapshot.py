@@ -7,7 +7,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 HOSTNAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}$")
 
@@ -36,14 +36,13 @@ class HostSnapshot(BaseModel):
             raise ValueError("Invalid operating system label")
         return value
 
-    @field_validator("disk_free_bytes")
-    @classmethod
-    def disk_free_nonnegative(cls, value):
-        return value
-
-    def safe_dump(self) -> dict:
+    @model_validator(mode="after")
+    def validate_disk_capacity(self):
         if self.disk_free_bytes > self.disk_total_bytes:
             raise ValueError("Free disk bytes exceed total disk capacity")
+        return self
+
+    def safe_dump(self) -> dict:
         return self.model_dump()
 
 
