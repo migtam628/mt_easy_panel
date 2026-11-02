@@ -1,4 +1,6 @@
-# MT Panel — Local and VPS setup (Phase 1)
+# MT Panel — Local and VPS setup (read-only pilot)
+
+For the dedicated Ubuntu 26.04 systemd installation path, see [Ubuntu 26.04 VPS pilot](UBUNTU_26_04_VPS_PILOT.md).
 
 ## Important: pilot only, no automatic changes to existing services
 
