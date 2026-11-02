@@ -48,6 +48,23 @@ uses the committed revision, not the current filesystem tree.
 The command prints the **exact stage directory** (for example,
 `/opt/mt-panel-stage.XXXXXXXX`). Record that path. Do not guess the path.
 
+**Existing staged revisions are preserved.** The staging tool may retain up
+to five separate candidates, so preparing the new v0.3.x revision does not
+require deleting your older verified `/opt/mt-panel-stage.rjP8TppP` build.
+If five candidates already exist, it refuses to stage another. Review those
+directories and available disk space manually; do not recursively delete
+unidentified directories.
+
+After staging a newer release, use the **newly printed directory**, not the
+older `rjP8TppP` directory, in the promotion preflight:
+
+```bash
+python3 scripts/promote-vps.py --check --stage /opt/mt-panel-stage.NEW_EXACT_ID
+```
+
+The 0.3.x application code has passed repository CI but is not active on the
+VPS until you explicitly run a tested candidate's activation command.
+
 ## Activation of a *verified staged* candidate (operator action)
 
 The activation tool lives in your GitHub checkout as `scripts/promote-vps.py`;
