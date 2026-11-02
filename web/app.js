@@ -86,9 +86,11 @@ function serverRow(x) {
   const host = x.health
     ? x.health.hostname + ' · ' + x.health.disk_free_percent + '% disk free'
     : 'No signed report';
+  const warnings = (x.warnings || []).map(w => w.severity.toUpperCase() + ': ' + w.message);
   const tr = plainRow([x.name, x.status,
     heartbeat[x.heartbeat_state] || 'Unknown',
     (x.report_state === 'recent' ? 'Recent · ' : x.report_state === 'stale' ? 'Stale · ' : '') + host,
+    warnings.join('; ') || 'No warnings',
     x.last_report ? new Date(x.last_report * 1000).toLocaleString() : '—']);
   const td = document.createElement('td');
   const button = el('button', 'Identity / health', 'link-button');
@@ -140,11 +142,12 @@ async function refresh() {
       renderStats(null);
       const fleet = (await api('/api/fleet/summary')).data;
       tableRows(['Server', 'Enrollment', 'Signed heartbeat', 'Signed host report',
-        'Last host report', 'Actions'], fleet.servers.map(serverRow));
+        'Warnings', 'Last host report', 'Actions'], fleet.servers.map(serverRow));
       const c = fleet.counts;
       $('table-subtitle').textContent = c.paired + ' paired · ' +
         c.heartbeat_recent + ' recent signed heartbeats · ' + c.heartbeat_stale +
-        ' stale · ' + c.revoked + ' revoked' +
+        ' stale · ' + c.warning_servers + ' with warnings · ' +
+        c.critical_servers + ' critical · ' + c.revoked + ' revoked' +
         (fleet.truncated ? ' · Showing first 500 servers' : '') +
         ' · Identity telemetry only; remote Docker control disabled.';
     } else if (view === 'projects') {
@@ -231,6 +234,49 @@ async function submitResource(event) {
     await refresh();
   } catch (error) { $('resource-error').textContent = error.message; }
 }
+function renderSignedHistory(samples) {
+  const holder = $('server-host-history');
+  holder.replaceChildren();
+  if (!samples.length) {
+    holder.append(el('div', 'No signed host reports recorded yet.', 'config-item'));
+    return;
+  }
+  const first = samples[0], latest = samples[samples.length - 1];
+  holder.append(el('div', samples.length + ' signed reports · latest: ' +
+    new Date(latest.recorded_at * 1000).toLocaleString() +
+    ' · ' + latest.disk_free_percent.toFixed(1) + '% disk free', 'config-item'));
+  // Native SVG only; numbers come from schema-validated, signed telemetry.
+  // The 0-100% vertical scale is fixed to avoid exaggerated trend changes.
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 640 132');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('class', 'health-chart');
+  svg.setAttribute('aria-label', 'Disk free percentage across ' +
+    samples.length + ' signed reports, oldest to newest');
+  const grid = document.createElementNS(ns, 'line');
+  grid.setAttribute('x1', '12'); grid.setAttribute('x2', '628');
+  grid.setAttribute('y1', '64'); grid.setAttribute('y2', '64');
+  grid.setAttribute('stroke', 'currentColor'); grid.setAttribute('opacity', '0.18');
+  svg.append(grid);
+  const points = samples.map((entry, i) => {
+    const x = 12 + (samples.length === 1 ? 308 : i * 616 / (samples.length - 1));
+    const pct = Math.max(0, Math.min(100, Number(entry.disk_free_percent)));
+    return x.toFixed(1) + ',' + (116 - pct).toFixed(1);
+  });
+  const line = document.createElementNS(ns, 'polyline');
+  line.setAttribute('points', points.join(' '));
+  line.setAttribute('fill', 'none'); line.setAttribute('stroke', '#098a87');
+  line.setAttribute('stroke-width', '3');
+  line.setAttribute('stroke-linecap', 'round');
+  line.setAttribute('stroke-linejoin', 'round');
+  svg.append(line);
+  const label = document.createElementNS(ns, 'title');
+  label.textContent = 'Signed disk history: ' + first.disk_free_percent +
+    '% to ' + latest.disk_free_percent + '% free';
+  svg.prepend(label);
+  holder.append(svg);
+}
 async function refreshServerIdentity() {
   if (!state.serverId) return;
   const details = (await api('/api/catalog/servers/' + encodeURIComponent(state.serverId) + '/identity')).data;
@@ -271,11 +317,21 @@ async function refreshServerIdentity() {
       ' · Uptime: ' + Math.floor(snapshot.uptime_seconds / 3600) + ' h',
       'config-item'));
   }
+  const signedHistory = (await api('/api/catalog/servers/' +
+    encodeURIComponent(state.serverId) + '/host-history?limit=96')).data;
+  renderSignedHistory(signedHistory.samples);
   $('server-invite').disabled = details.status === 'paired';
   $('server-revoke').disabled = details.status === 'revoked';
 }
 async function openServer(server) {
   state.serverId = server.id;
+  const warningHolder = $('server-warnings');
+  warningHolder.replaceChildren();
+  (server.warnings || []).forEach(w => warningHolder.append(el('div',
+    w.severity.toUpperCase() + ' · ' + w.message, 'config-item')));
+  if (!(server.warnings || []).length) {
+    warningHolder.append(el('div', 'No warnings based on the latest signed data.', 'config-item'));
+  }
   $('server-dialog-title').textContent = server.name + ' / Agent identity';
   $('server-invite-code').value = '';
   $('server-code-area').classList.add('hidden');
