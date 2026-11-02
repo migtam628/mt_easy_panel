@@ -274,7 +274,22 @@ async function createDraft(event) {
     await refreshDrafts();
   } catch (error) { $('project-error').textContent = error.message; }
 }
+async function previewCompose(event) {
+  event.preventDefault();
+  const out = $('compose-result');
+  out.textContent = 'Validating — no deployment will run…';
+  try {
+    const response = await api('/api/validate/compose', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({source:$('compose-source').value})
+    });
+    out.textContent = JSON.stringify(response.data, null, 2);
+  } catch (error) {
+    out.textContent = 'Rejected by safe-preview policy: ' + error.message;
+  }
+}
 async function init() {
+  $('compose-form').addEventListener('submit', previewCompose);
   $('close-project').addEventListener('click', () => $('project-dialog').close());
   $('environment-form').addEventListener('submit', createEnvironment);
   $('draft-environment').addEventListener('change', refreshDrafts);
