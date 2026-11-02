@@ -31,6 +31,8 @@ python -m panel.cli create-admin --username admin
 bash scripts/dev.sh
 ```
 
+If running on a Mac, start Docker Desktop and verify `docker version` works before enabling live inventory. The agent uses `/var/run/docker.sock` if present, or `~/.docker/run/docker.sock` as a fallback. Optionally configure `DOCKER_SOCKET_PATH=/absolute/path/to/docker.sock` in `.env` (Unix sockets only). Check with `python3 scripts/doctor.py` while both services are running.
+
 For an environment without Docker, edit `.env` and set `AGENT_DEMO_MODE=true`. The UI prominently shows a DEMO DATA warning. Do **not** mistake demo inventory for a real server.
 
 Access from the **server itself**: `http://127.0.0.1:8086`.
@@ -89,7 +91,7 @@ The shipped script is a **pilot launcher**, not an unattended production install
 
 | Symptom | Likely cause | Next check |
 |---|---|---|
-| `Host agent unavailable` | Agent down, wrong token, or Docker access failure | Confirm `AGENT_TOKEN` matches in both services and agent is on loopback |
+| `Host agent unavailable` | Agent down, wrong token, or Docker access failure | Run `python3 scripts/doctor.py`. Diagnostic errors now distinguish these causes. |
 | `Docker Engine is not reachable` | Socket missing or agent lacks permission | Check Engine running and UNIX socket permission; do not expose daemon TCP |
 | Login rejected | No admin, incorrect password, Origin mismatch | Run offline bootstrap once, verify `PANEL_PUBLIC_ORIGIN` |
 | Login works but reload redirects to login | Cookie `Secure` enabled on plain HTTP | Use HTTPS with secure cookies or local HTTP pilot setting |

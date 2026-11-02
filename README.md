@@ -1,8 +1,5 @@
 # MT Panel
 
-> **Repository bootstrap status:** Documentation and ignore rules have been published. The v0.1.1 application source has **not yet been imported into GitHub**. Do not attempt installation from a GitHub clone until the `panel/`, `agent/`, `web/`, `scripts/`, and `tests/` directories are committed.
-
-
 **Independent self-hosted VPS operations dashboard.** Working project name, version `0.1.1`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current Phase 1 is a functioning read-only pilot**: admin login, host information, containers, images, networks, volumes and bounded container logs. It has not been installed on any user VPS or tested against a live Docker daemon in this environment.
