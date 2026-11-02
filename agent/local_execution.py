@@ -34,7 +34,8 @@ class LocalDockerWriter:
               *, missing: bool = False) -> dict | None:
         # Paths are generated exclusively in this class using 32-hex IDs and
         # already schema-validated pinned images. Never take a path from HTTP.
-        conn = _UnixConnection(self.socket_path)
+        timeout = 20 if method == "POST" and path.endswith("/stop") else 4
+        conn = _UnixConnection(self.socket_path, timeout=timeout)
         raw = json.dumps(body, separators=(",", ":")).encode() if body is not None else None
         try:
             conn.request(method, path, body=raw, headers={
@@ -207,5 +208,15 @@ class LocalDockerWriter:
         # container, any Caddy routes and all existing workloads are untouched.
         # A failed stop is explicitly escalated rather than claiming rollback.
         self.lifecycle(job_id, draft_id, "stop")
+        # Docker may acknowledge a stop call before an external observer sees
+        # it terminated. A successful rollback MUST be independently verified.
+        # Missing or mismatched containers are ambiguous, never "rolled back".
+        after_stop = self.inspect(job_id)
+        if not isinstance(after_stop, dict):
+            raise DockerError("Stopped candidate could not be verified")
+        self._ownership(after_stop, job_id, draft_id)
+        state = after_stop.get("State")
+        if not isinstance(state, dict) or state.get("Running") is not False:
+            raise DockerError("Candidate stop is unconfirmed; operator review required")
         return {"status": "ROLLED_BACK", "container": created["container"],
                 "traffic_switched": False, "reason": "candidate_health_check_failed"}
