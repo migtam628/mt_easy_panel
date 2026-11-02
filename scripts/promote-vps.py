@@ -218,34 +218,52 @@ def rollback(backup: Path) -> None:
     directory(backup, BACKUPS, BACKUP_PATTERN)
     if not (backup / "ready").is_file() or not (backup / "panel.db").is_file() or not (backup / "code").is_dir():
         raise PromotionError("Rollback snapshot incomplete or already used")
-    install_check()
-    verify_services()
+    # Rollback must remain available even when the current MT Panel units are down.
+    if INSTALL.is_symlink() or not INSTALL.is_dir() or not ENV.is_file() or not DATA.is_file():
+        raise PromotionError("Existing code/configuration/database is missing; use manual recovery")
+    for unit in UNITS:
+        fragment = command("systemctl", "show", "-p", "FragmentPath", "--value", unit)
+        if fragment != "/etc/systemd/system/" + unit:
+            raise PromotionError("Unexpected systemd unit path: " + unit)
     failed_new = backup / "replaced-current"
     if failed_new.exists():
         raise PromotionError("This backup was already used for a rollback")
     print("Rolling back ONLY MT Panel using:", backup)
-    stop_mtpanel()
-    swapped = False
+    stopped = False
+    new_moved = False
+    old_moved = False
     try:
+        stopped = True
+        stop_mtpanel()
+        # Preserve the currently installed database, even on manual rollback.
+        sqlite_backup(backup / "pre-rollback.db")
         os.rename(INSTALL, failed_new)
+        new_moved = True
         os.rename(backup / "code", INSTALL)
-        swapped = True
+        old_moved = True
         sqlite_restore(backup / "panel.db")
         stage_smoke()
         start_mtpanel()
         verify_services()
     except Exception:
-        print("Rollback failed. Review MT Panel installation manually.", file=sys.stderr)
-        if not swapped and not INSTALL.exists() and failed_new.exists():
-            os.rename(failed_new, INSTALL)
-        try:
-            start_mtpanel()
-        except Exception:
-            pass
+        print("Rollback failed. Attempting to preserve the currently installed release.", file=sys.stderr)
+        if stopped:
+            try:
+                stop_mtpanel()
+                if old_moved and INSTALL.exists():
+                    os.rename(INSTALL, backup / "failed-rollback-old-code")
+                if new_moved and failed_new.exists():
+                    os.rename(failed_new, INSTALL)
+                if (backup / "pre-rollback.db").exists():
+                    sqlite_restore(backup / "pre-rollback.db")
+                start_mtpanel()
+                verify_services()
+                print("Original installed release recovered from failed rollback", file=sys.stderr)
+            except Exception as recovery_error:
+                print("URGENT: Manual recovery required:", recovery_error, file=sys.stderr)
         raise
     print("PASS: Previous MT Panel code and SQLite snapshot restored.")
-    print("The newer code remains preserved as:", failed_new)
-
+    print("The newer code and pre-rollback DB remain preserved under:", backup)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
