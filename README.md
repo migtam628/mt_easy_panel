@@ -1,8 +1,8 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.1.2`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.2.0-dev`.
 
-MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current Phase 1 is a functioning read-only pilot**: admin login, host information, containers, images, networks, volumes, bounded container logs, and a persistent authentication audit trail. It has not been installed on any user VPS or tested against a live Docker daemon in this environment.
+MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. It has not been installed on any user VPS or tested against a live Docker daemon in this environment.
 
 ## Quick start
 
@@ -61,6 +61,9 @@ mt-panel/
 | Admin login | Yes, offline bootstrap | Multi-user RBAC, MFA |
 | Audit events | Local SQLite login/logout/bootstrap events and owner-only activity page | Configuration/job events, export and retention |
 | Host health | Capacity and counts | Live utilization graphs |
+| Server registry | Saved, unpaired host identities (no remote access) | Trusted pairing, heartbeats, revocation |
+| Projects/environments | Persisted owner-scoped configuration + UI | Service lifecycle + multi-user RBAC |
+| Deployment drafts | Immutable image digest, strict resources and no dangerous fields | Authenticated deployment executor |
 | Container inspection | Name/image/state/ports/logs | Start/stop/restart with authorization |
 | Images, networks, volumes | Read-only listing | Managed lifecycle |
 | Git deploy | Not yet | GitHub, Buildx, queued rollout |
@@ -68,6 +71,14 @@ mt-panel/
 | Domains & TLS | Not yet | Caddy / Traefik integrations |
 | Backups | Not yet | Restic, schedules and tested restores |
 | Multiple servers | Local agent only | Secure registration/pairing |
+
+## New pilot workflow (v0.2.0-dev)
+
+After logging in, open **Servers** to create a local server *record* (unpaired) and **Projects** to create a project. Select **Manage** on a project to add environments and save image deployment drafts. A draft requires an image reference pinned to a complete sha256 digest, an internal container port, and conservative default resources. No actual Docker action is performed. The server registry does not accept SSH keys, host addresses or arbitrary URLs.
+
+For the VPS upgrade: stop the running development server, run `git pull --ff-only origin main`, install requirements using `.venv/bin/python -m pip install -r requirements.txt`, optionally install dev requirements and run `bash scripts/test.sh`, then restart. Existing `.env` and `state/` remain local; SQLite adds the new tables without overwriting administrators. Keep ports loopback-only and use the SSH/Tailscale tunnel.
+
+See [competitive research and implementation plan](docs/COMPETITIVE_RESEARCH_AND_PLAN.md).
 
 ## Security boundary
 
