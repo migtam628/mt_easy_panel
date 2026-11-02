@@ -5,9 +5,10 @@ import hmac
 import logging
 import os
 import time
-from collections import deque
+import sqlite3
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from agent.local_execution import ActionDenied, LocalDockerWriter
+from agent.action_replay import ActionReplay
 from protocol.local_action import LocalAction, verify_action
 from agent.docker import CONTAINER_ID, DockerError, DockerReader
 
@@ -43,7 +44,7 @@ class DemoReader:
 
 def create_app(reader=None, token: str | None = None, *,
                writer=None, enable_local_writes: bool | None = None,
-               execution_key: str | None = None):
+               execution_key: str | None = None, replay=None):
     app = FastAPI(title="MT Panel Host Agent", version="0.1.1", docs_url=None,
                   redoc_url=None, openapi_url=None)
     token = token if token is not None else os.environ.get("AGENT_TOKEN", "")
@@ -64,7 +65,9 @@ def create_app(reader=None, token: str | None = None, *,
     if lab_enabled and writer is None:
         writer = LocalDockerWriter(DockerReader().socket_path)
     agent_log = logging.getLogger("mtpanel.agent.lab")
-    seen: dict[str, int] = {}
+    if lab_enabled and replay is None:
+        replay = ActionReplay(os.environ.get(
+            "AGENT_EXECUTION_REPLAY_DB", "/var/lib/mt-panel-agent/lab-actions.db"))
 
 
     @app.get("/health")
@@ -122,17 +125,16 @@ def create_app(reader=None, token: str | None = None, *,
                 or not verify_action(execution_key, action, x_mtpanel_signature)):
             agent_log.warning("local_action_rejected job=%s reason=auth", action.job_id)
             raise HTTPException(401, "Invalid or expired signed local action")
-        # Strictly bounded per-process replay cache; the deterministic lab
-        # container name plus labels handles replay after an agent restart.
-        for key, moment in list(seen.items()):
-            if now - moment > 60:
-                del seen[key]
-        if action.nonce in seen:
+        # Consume signed nonce in the agent's own durable SQLite ledger
+        # BEFORE any Docker action. Database failure must fail closed.
+        try:
+            accepted = replay.consume(
+                action.nonce, action.job_id, action.draft_id, action.operation, now)
+        except sqlite3.Error as exc:
+            raise HTTPException(503, "Local action audit store unavailable") from exc
+        if not accepted:
             agent_log.warning("local_action_rejected job=%s reason=replay", action.job_id)
             raise HTTPException(409, "Local action replay")
-        if len(seen) >= 2048:
-            raise HTTPException(503, "Local execution replay cache full")
-        seen[action.nonce] = now
         agent_log.info("local_action_requested job=%s draft=%s operation=%s",
                        action.job_id, action.draft_id, action.operation)
         try:
@@ -143,11 +145,14 @@ def create_app(reader=None, token: str | None = None, *,
                                           action.operation)
             agent_log.info("local_action_finished job=%s status=%s",
                            action.job_id, result.get("status", "complete"))
+            replay.complete(action.nonce, result.get("status", "lifecycle").lower())
             return {"data": result}
         except ActionDenied as exc:
+            replay.complete(action.nonce, "denied")
             agent_log.warning("local_action_denied job=%s reason=policy", action.job_id)
             raise HTTPException(409, str(exc)) from exc
         except DockerError as exc:
+            replay.complete(action.nonce, "failed")
             agent_log.error("local_action_failed job=%s reason=docker", action.job_id)
             raise HTTPException(503, "Local lab Docker operation failed") from exc
 
