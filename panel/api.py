@@ -289,6 +289,12 @@ def create_app(settings: Settings | None = None, agent=None):
     def read_host_report(server_id: str, user=Depends(current_user)):
         return registry_action(reports.get, user["username"], server_id)
 
+    @app.get("/api/catalog/servers/{server_id}/host-history")
+    def read_host_history(server_id: str, limit: int = Query(default=96, ge=1, le=200),
+                          user=Depends(current_user)):
+        # Local SQLite reads only, never requests anything from the remote host.
+        return registry_action(reports.history, user["username"], server_id, limit)
+
     @app.post("/api/agents/{server_id}/host-report")
     def accept_host_report(server_id: str, payload: SignedHostReport):
         return registry_action(reports.ingest, server_id, payload.sequence,
