@@ -18,6 +18,7 @@ from panel.enrollment import EnrollmentStore
 from panel.host_reports import HostReports
 from panel.fleet import FleetStore
 from panel.deployment_readiness import DeploymentReadiness
+from panel.diagnostics import summarize_containers, host_capacity
 from protocol.host_snapshot import HostSnapshot
 from panel.manifests import ServiceDraft
 from panel.compose_policy import ComposePolicyError, validate_compose
@@ -282,9 +283,39 @@ def create_app(settings: Settings | None = None, agent=None):
             "notifications_enabled": False, "polling_enabled": False,
         }}
 
+    @app.get("/api/monitoring/diagnostics")
+    async def local_container_diagnostics(user=Depends(current_user)):
+        # Uses ONLY the existing constrained local agent's GET inventory.
+        # No arbitrary Engine paths, container actions or persisted data.
+        try:
+            overview = await agent.get("overview")
+            containers = await agent.get("containers")
+            if not isinstance(overview, dict):
+                raise ValueError("Malformed local agent overview")
+            diagnostics = summarize_containers(containers)
+            capacity = host_capacity(overview)
+        except (HTTPException, ValueError, TypeError):
+            return {"data": {
+                "state": "unavailable", "source": None,
+                "capacity": None, "diagnostics": None,
+                "message": "Local Docker inventory unavailable; no health claim made",
+                "docker_writes_enabled": False,
+            }}
+        return {"data": {
+            "state": "demo" if overview.get("source") == "demo" else "connected",
+            "source": overview.get("source"),
+            "capacity": capacity, "diagnostics": diagnostics,
+            "message": "On-demand local inventory; not continuous monitoring",
+            "docker_writes_enabled": False,
+        }}
+
     @app.get("/api/deployments/readiness")
     def deployment_readiness(user=Depends(current_user)):
         return {"data": deployments.list_drafts(user["username"])}
+
+    @app.get("/api/deployments/drafts/{draft_id}/review")
+    def review_deployment_draft(draft_id: str, user=Depends(current_user)):
+        return registry_action(deployments.review, user["username"], draft_id)
 
     @app.get("/api/settings/security")
     def security_posture(user=Depends(current_user)):
