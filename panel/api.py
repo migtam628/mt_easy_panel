@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
@@ -18,6 +19,8 @@ from panel.enrollment import EnrollmentStore
 from panel.host_reports import HostReports
 from panel.fleet import FleetStore
 from panel.deployment_readiness import DeploymentReadiness
+from panel.local_jobs import LocalJobs
+from protocol.local_action import LocalAction, sign_action
 from panel.diagnostics import summarize_containers, host_capacity
 from protocol.host_snapshot import HostSnapshot
 from panel.manifests import ServiceDraft
@@ -36,6 +39,9 @@ class Settings:
     agent_token: str
     origin: str
     cookie_secure: bool = False
+    lab_server_id: str = ""
+    lab_execution_enabled: bool = False
+    lab_execution_key: str = ""
 
     @classmethod
     def from_env(cls):
@@ -45,6 +51,9 @@ class Settings:
             agent_token=os.environ.get("AGENT_TOKEN", ""),
             origin=os.environ.get("PANEL_PUBLIC_ORIGIN", "http://127.0.0.1:8086"),
             cookie_secure=os.environ.get("PANEL_COOKIE_SECURE", "false").lower() == "true",
+            lab_server_id=os.environ.get("PANEL_LOCAL_SERVER_ID", ""),
+            lab_execution_enabled=os.environ.get("PANEL_LOCAL_EXECUTION_ENABLED") == "true",
+            lab_execution_key=os.environ.get("AGENT_EXECUTION_KEY", ""),
         )
 
     def validate(self):
@@ -60,6 +69,13 @@ class Settings:
             raise ValueError("External access requires HTTPS")
         if origin.scheme == "https" and not self.cookie_secure:
             raise ValueError("PANEL_COOKIE_SECURE must be true for an HTTPS origin")
+        if self.lab_execution_enabled:
+            if (os.environ.get("PANEL_EXECUTION_LAB_ACK") != "I_ACCEPT_DISPOSABLE_HOST_ONLY"
+                    or len(self.lab_execution_key) < 32
+                    or len(self.lab_server_id) != 32
+                    or any(x not in "0123456789abcdef" for x in self.lab_server_id)):
+                raise ValueError("Local execution requires disposable-host acknowledgement, "
+                                 "dedicated key, and explicit 32-hex local server ID")
 
 
 class AgentClient:
@@ -76,6 +92,35 @@ class AgentClient:
         if len(container_id) not in range(12, 65) or any(c not in "0123456789abcdef" for c in container_id):
             raise ValueError("Invalid container ID")
         return await self._request(f"/v1/containers/{container_id}/logs?tail=80")
+
+    async def lab_action(self, operation: str, job_id: str, draft_id: str,
+                         manifest: ServiceDraft | None = None) -> dict:
+        if not self.settings.lab_execution_enabled:
+            raise HTTPException(403, "Local deployment execution disabled")
+        action = LocalAction(
+            operation=operation, job_id=job_id, draft_id=draft_id,
+            issued_at=int(time.time()), nonce=secrets.token_hex(16),
+            manifest=manifest,
+        )
+        url = self.settings.agent_url.rstrip("/") + "/v1/lab/actions"
+        headers = {
+            "Authorization": f"Bearer {self.settings.agent_token}",
+            "X-MTPanel-Signature": sign_action(self.settings.lab_execution_key, action),
+        }
+        try:
+            async with httpx.AsyncClient(timeout=35, trust_env=False) as client:
+                response = await client.post(url, json=action.model_dump(mode="json"),
+                                             headers=headers)
+                response.raise_for_status()
+                result = response.json()["data"]
+                if not isinstance(result, dict) or result.get("status") not in (
+                        "HEALTHY", "ROLLED_BACK"):
+                    raise ValueError("Unexpected agent deployment result")
+                return result
+        except (httpx.RequestError, httpx.HTTPStatusError, ValueError, KeyError) as exc:
+            # Do not leak signed requests, the bearer token, daemon paths or
+            # raw Docker messages into the browser.
+            raise HTTPException(503, "Local lab deployment agent failed; job requires review") from exc
 
     async def _request(self, path: str):
         try:
@@ -140,6 +185,13 @@ class SignedHostReport(BaseModel):
     snapshot: HostSnapshot
 
 
+class LocalJobRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    idempotency_key: str = Field(min_length=16, max_length=96)
+    execute: bool = False
+    confirmation: str = ""
+
+
 class LoginData(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
@@ -154,6 +206,7 @@ def create_app(settings: Settings | None = None, agent=None):
     reports = HostReports(settings.db_path)
     fleet = FleetStore(settings.db_path)
     deployments = DeploymentReadiness(settings.db_path)
+    jobs = LocalJobs(settings.db_path)
     agent = agent or AgentClient(settings)
     app = FastAPI(title="MT Panel", version="0.3.7-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
@@ -317,6 +370,54 @@ def create_app(settings: Settings | None = None, agent=None):
     def review_deployment_draft(draft_id: str, user=Depends(current_user)):
         return registry_action(deployments.review, user["username"], draft_id)
 
+    @app.get("/api/deployments/jobs")
+    def list_local_jobs(limit: int = Query(default=50, ge=1, le=100),
+                        user=Depends(current_user)):
+        return {"data": jobs.list(user["username"], limit)}
+
+    @app.get("/api/deployments/jobs/{job_id}")
+    def local_job_details(job_id: str, user=Depends(current_user)):
+        return registry_action(jobs.details, user["username"], job_id)
+
+    @app.post("/api/deployments/drafts/{draft_id}/jobs", status_code=201)
+    def create_local_job(draft_id: str, data: LocalJobRequest, request: Request,
+                         user=Depends(current_user)):
+        require_write_origin(request)
+        if data.execute and (not settings.lab_execution_enabled
+                             or data.confirmation != "DEPLOY_TO_DISPOSABLE_HOST"):
+            raise HTTPException(403, "Local Docker execution is disabled or not approved")
+        if not data.execute and data.confirmation:
+            raise HTTPException(422, "Dry-run jobs do not accept execution confirmation")
+        return registry_action(jobs.create, user["username"], draft_id,
+                               data.idempotency_key, settings.lab_server_id,
+                               execute=data.execute)
+
+    @app.post("/api/deployments/jobs/{job_id}/run")
+    async def run_local_job(job_id: str, request: Request, user=Depends(current_user)):
+        require_write_origin(request)
+        if not settings.lab_execution_enabled:
+            raise HTTPException(403, "Local deployment execution is disabled")
+        try:
+            claimed = jobs.claim(user["username"], job_id, settings.lab_server_id)
+        except RegistryError as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+        result = None
+        try:
+            result = await agent.lab_action("deploy", claimed["job_id"],
+                                            claimed["draft_id"], claimed["manifest"])
+            terminal = result["status"]
+            code = "healthy" if terminal == "HEALTHY" else "candidate_stopped"
+        except Exception:
+            # The operation may have reached Docker. Never automatically
+            # retry it after an uncertain network/application failure.
+            terminal, code = "FAILED", "agent_unconfirmed"
+        try:
+            record = jobs.finish(user["username"], job_id, claimed["token"],
+                                 terminal, code)
+        except RegistryError as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+        return {"data": record}
+
     @app.get("/api/settings/security")
     def security_posture(user=Depends(current_user)):
         # Fixed allowlisted facts only; never expose AGENT_TOKEN, DB paths,
@@ -331,7 +432,8 @@ def create_app(settings: Settings | None = None, agent=None):
             "local_docker_inventory": "read_only",
             "remote_docker_access": False,
             "container_writes": False,
-            "deployment_execution": False,
+            "deployment_execution": settings.lab_execution_enabled,
+            "lab_execution_enabled": settings.lab_execution_enabled,
             "multi_user_roles": False,
             "multi_factor_auth": False,
             "security_audit": "local_sqlite",
