@@ -17,3 +17,6 @@
 .inline-config-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
 .inline-config-form button{justify-self:start}
 @media(max-width:660px){.inline-config-form{grid-template-columns:1fr}}
+
+/* Signed server-health history: accessible, responsive and never tied to Docker. */
+.health-chart { display: block; width: 100%; max-width: 680px; height: 132px; margin: 10px 0 6px; }
