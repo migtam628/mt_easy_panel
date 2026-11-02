@@ -288,6 +288,10 @@ original GET allowlist by default. The write path is enabled only by
 separate, explicit disposable-host settings and a different signing key;
 remote Ed25519 enrollment and signed telemetry stay unchanged.
 
+The Deployments screen displays the latest owner-scoped job states and
+last-update times **read-only**, without any action to execute Docker from
+the browser interface.
+
 A SQLite job ledger now supports authenticated, owner-scoped DRAFT jobs,
 explicitly approved QUEUED jobs and individually leased RUNNING jobs.
 Outcomes are HEALTHY, ROLLED_BACK (candidate stopped, no traffic switched)
