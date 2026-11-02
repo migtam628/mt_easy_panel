@@ -171,4 +171,6 @@ def test_page_navigation_is_active_and_read_only():
     assert "/api/monitoring/overview" in js
     assert "/api/deployments/readiness" in js
     assert "/api/settings/security" in js
-    assert "No deployment queue" in js
+    assert "/api/deployments/jobs?limit=50" in js
+    assert "no UI execution buttons" in js
+    assert "showDraftReview(d)" in js
