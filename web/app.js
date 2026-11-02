@@ -86,7 +86,7 @@ function secondaryRows(headers, rows) {
   } else rows.forEach(row => body.append(row));
   $('secondary-count').textContent = rows.length + ' shown';
 }
-async async function saveDraftJob(draft, button) {
+async function saveDraftJob(draft, button) {
   if (!window.confirm('Save a DRY-RUN job for ' + draft.name +
       '? This records metadata only. No container will be created or changed.')) return;
   button.disabled = true;
@@ -107,7 +107,7 @@ async async function saveDraftJob(draft, button) {
     button.disabled = false;
   }
 }
-function showDraftReview(draft) {
+async function showDraftReview(draft) {
   $('draft-review-title').textContent = draft.name + ' / Static security review';
   $('draft-review-details').replaceChildren();
   $('draft-review-checks').replaceChildren();
