@@ -160,7 +160,7 @@ def check_revision(path: Path = INSTALL) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", required=True)
-    parser.add_argument("--expected-version", default="0.3.5-dev")
+    parser.add_argument("--expected-version", default="0.3.6-dev")
     args = parser.parse_args()
 
     # This command is deliberately POST-PROMOTION only. A common operator

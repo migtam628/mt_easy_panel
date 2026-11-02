@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.5-dev
+# Phase 2 Build Backlog — MT Panel v0.3.6-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -36,3 +36,12 @@ owner-visible policy, not secrets or live configuration mutation.
 a separate disposable test host, privilege separation, agent identity
 binding and the eight deployment safety criteria above. Monitoring
 notifications, MFA, multi-user RBAC and real deployment jobs are not shipped.
+
+
+## Safe release lifecycle — completed v0.3.6-dev
+
+Staging prints an exact commit-pinned promotion sequence. An operator may
+read all staged/installed/source revisions with a no-write release-status
+check. The live verifier now distinguishes "staged but not promoted" from
+a failed running application. Live container writes and agent remote
+management remain excluded until tested on an isolated Docker host.

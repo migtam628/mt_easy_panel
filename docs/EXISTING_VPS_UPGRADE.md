@@ -49,18 +49,15 @@ The command prints the **exact stage directory** (for example,
 `/opt/mt-panel-stage.XXXXXXXX`). Record that path. Do not guess the path.
 
 **Existing staged revisions are preserved.** The staging tool may retain up
-to five separate candidates, so preparing the new v0.3.x revision does not
-require deleting your older verified `/opt/mt-panel-stage.rjP8TppP` build.
+to five separate candidates, so preparing a new revision does not
+require deleting an older verified staging candidate.
 If five candidates already exist, it refuses to stage another. Review those
 directories and available disk space manually; do not recursively delete
 unidentified directories.
 
-After staging a newer release, use the **newly printed directory**, not the
-older `rjP8TppP` directory, in the promotion preflight:
-
-```bash
-python3 scripts/promote-vps.py --check --stage /opt/mt-panel-stage.NEW_EXACT_ID
-```
+After staging a newer release, copy the **exact printed directory and SHA**
+for promotion preflight. The command now prints both pinned commands, so
+there is no need to guess or substitute a previous release's directory.
 
 The 0.3.x application code has passed repository CI but is not active on the
 VPS until you explicitly run a tested candidate's activation command.
@@ -72,23 +69,31 @@ it is **not** automatically invoked by staging. Its --check mode reads the
 existing systemd/Tailscale security settings, requires both services to be
 healthy, verifies the candidate marker, and makes no changes.
 
-For the stage that was tested successfully on Ubuntu 26.04:
+**Use the exact commands printed by your successful --stage invocation.**
+Never reuse a directory name from a previous session or an example in
+this guide. The `--expect-commit FULL_SHA` argument is recommended for
+both operations, to prevent activating a different tested revision:
 
-```bash
-cd ~/mt_easy_panel
-python3 scripts/promote-vps.py --check --stage /opt/mt-panel-stage.rjP8TppP
+```text
+PASS: Upgrade candidate staged and tested: /opt/mt-panel-stage.EXACT_ID
+STAGE_PATH=/opt/mt-panel-stage.EXACT_ID
+STAGE_REVISION=40_CHARACTER_COMMIT
+NEXT - read-only promotion preflight:
+  python3 scripts/promote-vps.py --check --stage EXACT_PATH --expect-commit EXACT_SHA
+AFTER preflight passes - explicitly activate the same tested stage:
+  python3 scripts/promote-vps.py --activate --stage EXACT_PATH --expect-commit EXACT_SHA --confirm ACTIVATE_MT_PANEL
 ```
 
-The stage's saved commit is `9d279a6`. It does not automatically include
-more recent GitHub commits; this is intentional so the tested candidate is
-promoted, not untested source.
+The values above illustrate the output format; **do not paste the
+placeholders**. Copy your own stage command's printed path and SHA exactly.
+The --check preflight validates the specific installed services and staging
+revision, but does not activate the candidate.
 
-When approved for a brief, MT Panel-only maintenance interruption:
+Before or after staging, you can also inspect all versions **without
+making changes**:
 
 ```bash
-python3 scripts/promote-vps.py --activate \
-  --stage /opt/mt-panel-stage.rjP8TppP \
-  --confirm ACTIVATE_MT_PANEL
+python3 scripts/release-status.py --check
 ```
 
 **This is a live change**: it stops/restarts `mt-panel.service` and
@@ -104,18 +109,21 @@ checks fail, it attempts to restore the prior application directory and SQLite
 snapshot and restart the two MT Panel services automatically. **Do not assume
 rollback succeeded without reading the command output and rechecking health.**
 
-After promotion, run the read-only release verifier from your Git checkout.
-It compares the running dashboard with v0.3.2-dev and checks that the
-enrollment and signed reporting schema exists without modifying SQLite:
+After successful activation, run the read-only verifier from your
+Git checkout, specifying the **version that was actually staged**:
 
 ```bash
 cd ~/mt_easy_panel
-python3 scripts/verify-live-vps.py --check --expected-version 0.3.2-dev
+python3 scripts/verify-live-vps.py --check --expected-version 0.3.5-dev
 ```
 
-If it says the dashboard is `0.2.1-dev`, the code was only staged or the
-activation did not complete. This is a deliberate failure, not a request to
-reinstall MT Panel. Confirm activation and rollback output before continuing.
+The version above is an example for the v0.3.5 release. For the
+subsequent release, use its own expected version. Never run this verifier
+as the staging test: staging tests already run in the isolated stage.
+If a prior version is still running, the verifier returns status **2** with
+a single `NOT ACTIVE` message and instructions for promotion. It will
+not misreport new endpoints or database tables as damaged just because
+they have not yet been installed.
 
 After promotion, also confirm:
 

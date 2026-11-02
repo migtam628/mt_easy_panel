@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.5-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.6-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -223,6 +223,32 @@ The user's existing v0.3.4-dev VPS is **not** automatically upgraded when
 commits land in GitHub. For each release use the
 [staged upgrade runbook](docs/EXISTING_VPS_UPGRADE.md), verify the exact
 new staging commit and explicitly promote only that release.
+
+## Safe VPS release lifecycle (v0.3.6-dev)
+
+Use `python3 scripts/release-status.py --check` on the existing VPS for a
+**read-only** report of the running dashboard version, installed code
+revision, current Git checkout, and every verified staging directory.
+This does not change the running application, Docker, systemd, Tailscale,
+SQLite, credentials or any deployment.
+
+After a successful `bash scripts/upgrade-vps.sh --stage`, the script prints
+the **exact tested directory, full commit SHA and two copyable commands**
+for promotion preflight and explicit activation. The commands use
+`--expect-commit FULL_SHA`; choosing a different stage is refused before
+services are touched.
+
+`scripts/verify-live-vps.py --check --expected-version VERSION` is a
+**post-activation-only** verifier. When the running dashboard is older it
+prints `NOT ACTIVE` and explains the remaining activation step, without
+issuing misleading failures about endpoints and schema that exist only in
+the staged release. It exits with status 2 (not yet live); this is not a
+staging or installation failure.
+
+The operator still explicitly activates a tested release in a brief MT
+Panel-only maintenance window. Old staging candidates and rollback
+snapshots are never automatically deleted. See the
+[existing VPS upgrade guide](docs/EXISTING_VPS_UPGRADE.md).
 
 ## Security boundary
 

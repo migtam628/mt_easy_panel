@@ -26,8 +26,8 @@ jobs:
       - run: node --check web/app.js
       - run: bash -n scripts/dev.sh scripts/install-vps.sh scripts/vps-preflight.sh scripts/test.sh scripts/upgrade-vps.sh scripts/tailscale-access.sh
       - run: python -m pytest tests/test_vps_installer.py -q
-      - run: python -m py_compile scripts/promote-vps.py scripts/vps-status.py scripts/verify-live-vps.py
-      - run: python -m pytest tests/test_verify_live_vps.py -q
+      - run: python -m py_compile scripts/promote-vps.py scripts/vps-status.py scripts/verify-live-vps.py scripts/release-status.py
+      - run: python -m pytest tests/test_verify_live_vps.py tests/test_release_status.py -q
       - run: python -m compileall -q agent panel
       - run: python -m pytest tests/test_enrollment.py -q
       - run: python -m pytest tests/test_agent_heartbeat.py tests/test_host_reports.py tests/test_fleet.py tests/test_operational_pages.py -q

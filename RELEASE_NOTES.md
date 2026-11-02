@@ -1,3 +1,21 @@
+## v0.3.6-dev — Safe release lifecycle, no Docker changes
+
+- Added a read-only `scripts/release-status.py --check` to display
+  current source, installed and available staged revisions separately.
+- Updated staged upgrade output to print the exact new stage path, full
+  SHA, and copyable, commit-pinned preflight/activation commands.
+- Added optional `--expect-commit FULL_SHA` for both promotion preflight
+  and activation, preventing accidental selection of a tested but older
+  staging candidate.
+- Fixed post-promotion verification's confusing failure cascade when
+  invoked before activation. It now reports `NOT ACTIVE` once and exits
+  with status 2, before checking future-only endpoints and schema.
+- Added automated checks for wrong-stage refusal, status accuracy, and
+  strict absence of service/container write operations.
+- This release does not enable new API write endpoints, remote Docker
+  inventory, background tasks or host changes. The previously staged
+  v0.3.5-dev candidate is unaffected.
+
 ## v0.3.5-dev — Working Monitoring, Deployments preview and Security Settings
 
 - Enabled Monitoring in the sidebar with an on-demand overview of local
