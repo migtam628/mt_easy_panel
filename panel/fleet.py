@@ -63,6 +63,30 @@ class FleetStore:
                     "memory_total_bytes": snapshot["memory_total_bytes"],
                     "disk_free_percent": round(100 * free / total, 1),
                 }
+            warnings = []
+            if status == "paired":
+                if heartbeat == "stale":
+                    warnings.append({
+                        "code": "heartbeat_stale", "severity": "warning",
+                        "message": "No recent signed heartbeat"
+                    })
+                if report == "stale":
+                    warnings.append({
+                        "code": "host_report_stale", "severity": "warning",
+                        "message": "Last signed host report is stale"
+                    })
+                if health is not None:
+                    pct = health["disk_free_percent"]
+                    if pct < 10:
+                        warnings.append({
+                            "code": "disk_low", "severity": "critical",
+                            "message": "Last signed disk report below 10% free"
+                        })
+                    elif pct < 20:
+                        warnings.append({
+                            "code": "disk_low", "severity": "warning",
+                            "message": "Last signed disk report below 20% free"
+                        })
             items.append({
                 "id": row["id"], "name": row["name"], "status": status,
                 "created_at": row["created_at"],
@@ -71,11 +95,17 @@ class FleetStore:
                 "report_state": report,
                 "last_report": row["recorded_at"] if status == "paired" else None,
                 "health": health,
+                "warnings": warnings,
             })
         counts = {state: sum(item["status"] == state for item in items)
                   for state in ("unpaired", "paired", "revoked")}
         counts["heartbeat_recent"] = sum(item["heartbeat_state"] == "recent" for item in items)
         counts["heartbeat_stale"] = sum(item["heartbeat_state"] == "stale" for item in items)
         counts["report_recent"] = sum(item["report_state"] == "recent" for item in items)
+        counts["warning_servers"] = sum(bool(item["warnings"]) for item in items)
+        counts["critical_servers"] = sum(
+            any(w["severity"] == "critical" for w in item["warnings"])
+            for item in items
+        )
         return {"servers": items, "counts": counts, "truncated": truncated,
                 "fleet_scope": "owner", "remote_docker_access": False}
