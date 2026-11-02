@@ -474,8 +474,11 @@ def create_app(settings: Settings | None = None, agent=None):
         if target["state"] not in ("RUNNING", "NEEDS_REVIEW"):
             return {"data": {**target, "observation": "not_applicable",
                              "safe_to_retry": False, "host_lock_released": False}}
-        observation = await agent.lab_candidate(target["job_id"], target["draft_id"],
-                                              target["image_digest"])
+        try:
+            observation = await agent.lab_candidate(
+                target["job_id"], target["draft_id"], target["image_digest"])
+        except Exception as exc:
+            raise HTTPException(503, "Lab candidate status unavailable; host remains locked") from exc
         return {"data": {**target, **observation,
                          "host_lock_released": False}}
 
@@ -492,8 +495,11 @@ def create_app(settings: Settings | None = None, agent=None):
             raise HTTPException(409, "Job is not unresolved")
         if target["state"] == "RUNNING" and not target["lease_expired"]:
             raise HTTPException(409, "Active job lease cannot be reconciled")
-        observation = await agent.lab_candidate(target["job_id"], target["draft_id"],
-                                              target["image_digest"])
+        try:
+            observation = await agent.lab_candidate(
+                target["job_id"], target["draft_id"], target["image_digest"])
+        except Exception as exc:
+            raise HTTPException(503, "Lab candidate status unavailable; host remains locked") from exc
         return registry_action(jobs.record_recovery, user["username"], job_id,
                                settings.lab_server_id, observation["observation"])
 
