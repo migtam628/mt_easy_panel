@@ -19,7 +19,7 @@ from panel.registry import Registry, RegistryError
 
 KEY = re.compile(r"[A-Za-z0-9_-]{16,96}\Z")
 HEX = re.compile(r"[0-9a-f]{32}\Z")
-STATES = ("DRAFT", "QUEUED", "RUNNING", "HEALTHY", "FAILED", "ROLLED_BACK")
+STATES = ("DRAFT", "QUEUED", "RUNNING", "HEALTHY", "FAILED", "ROLLED_BACK", "NEEDS_REVIEW")
 
 
 class LocalJobs:
@@ -36,6 +36,7 @@ class LocalJobs:
                     manifest_json TEXT NOT NULL,
                     manifest_hash TEXT NOT NULL,
                     state TEXT NOT NULL,
+                    requested_execute INTEGER NOT NULL DEFAULT 0,
                     attempt INTEGER NOT NULL DEFAULT 0,
                     lease_token TEXT,
                     lease_until INTEGER,
@@ -109,17 +110,17 @@ class LocalJobs:
                 if (existing["draft_id"] != draft_id
                         or existing["manifest_hash"] != digest
                         or existing["local_server_id"] != local_server_id
-                        or (existing["state"] == "DRAFT") != (not execute)):
+                        or bool(existing["requested_execute"]) != bool(execute)):
                     # Never reuse an idempotency key for a different request.
                     raise RegistryError("Idempotency key already used for a different request", 409)
                 return self._public(existing)
             job_id = uuid.uuid4().hex
             db.execute("""INSERT INTO local_deployment_jobs
                 (id,owner,draft_id,local_server_id,idempotency_key,
-                 manifest_json,manifest_hash,state,attempt,created_at,updated_at)
-                VALUES (?,?,?,?,?,?,?,?,0,?,?)""",
+                 manifest_json,manifest_hash,state,requested_execute,attempt,created_at,updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,0,?,?)""",
                 (job_id, owner, draft_id, local_server_id, key,
-                 manifest_json, digest, state, now, now))
+                 manifest_json, digest, state, int(execute), now, now))
             self._event(db, job_id, owner, state, "requested_" + state.lower(), now)
             return self._public(db.execute(
                 "SELECT * FROM local_deployment_jobs WHERE id=?", (job_id,)).fetchone())
@@ -143,6 +144,30 @@ class LocalJobs:
                 WHERE job_id=? ORDER BY id""", (job_id,)).fetchall()
             return {**self._public(row), "events": [dict(e) for e in events]}
 
+    def queue(self, owner: str, job_id: str, local_server_id: str) -> dict:
+        """Explicitly authorize a previously drafted lab job.
+
+        A queuing acknowledgement does not run Docker. No job can be
+        queued for any server other than the configured local lab host.
+        """
+        now = int(time.time())
+        with self.registry.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("""SELECT * FROM local_deployment_jobs
+                WHERE id=? AND owner=? AND local_server_id=?""",
+                (job_id, owner, local_server_id)).fetchone()
+            if row is None:
+                raise RegistryError("Job not found", 404)
+            if row["state"] == "QUEUED":
+                return self._public(row)
+            if row["state"] != "DRAFT":
+                raise RegistryError("Only DRAFT jobs can enter the queue", 409)
+            db.execute("""UPDATE local_deployment_jobs SET state='QUEUED',
+                updated_at=? WHERE id=?""", (now, job_id))
+            self._event(db, job_id, owner, "QUEUED", "approved_queued", now)
+            return self._public(db.execute(
+                "SELECT * FROM local_deployment_jobs WHERE id=?", (job_id,)).fetchone())
+
     def claim(self, owner: str, job_id: str, local_server_id: str):
         now = int(time.time())
         with self.registry.connect() as db:
@@ -155,7 +180,7 @@ class LocalJobs:
             if row["state"] != "QUEUED":
                 raise RegistryError("Only QUEUED lab jobs can be executed", 409)
             busy = db.execute("""SELECT 1 FROM local_deployment_jobs
-                WHERE local_server_id=? AND state='RUNNING'
+                WHERE local_server_id=? AND state IN ('RUNNING','NEEDS_REVIEW')
                 LIMIT 1""", (local_server_id,)).fetchone()
             if busy:
                 # Even expired leases require manual reconciliation; never
@@ -174,7 +199,7 @@ class LocalJobs:
 
     def finish(self, owner: str, job_id: str, token: str, state: str,
                code: str = "completed") -> dict:
-        if state not in ("HEALTHY", "ROLLED_BACK", "FAILED"):
+        if state not in ("HEALTHY", "ROLLED_BACK", "FAILED", "NEEDS_REVIEW"):
             raise RegistryError("Invalid terminal job state")
         if not re.fullmatch(r"[a-z_]{1,48}", code):
             code = "invalid_result"
