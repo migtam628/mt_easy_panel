@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.2-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.3-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -158,6 +158,23 @@ from the VPS Git checkout **after** explicitly promoting the tested
 candidate. This is a non-destructive check of live version, authentication
 boundaries, private SQLite schema, and Tailscale Serve 8443. Merely pulling
 GitHub source into `~/mt_easy_panel` does not upgrade `/opt/mt-panel`.
+
+## Fleet-wide signed health monitoring (v0.3.3-dev)
+
+The **Servers** page now offers an owner-scoped fleet overview with verified
+identity state, recent/stale signed heartbeats, and last signed Linux host
+health reports. The `GET /api/fleet/summary` API reads only SQLite data,
+limits returned server records to 500, and never attempts a connection to
+registered machines. Agent revocation and key re-enrollment clear any old
+signed host snapshots to prevent attributing one host's telemetry to a
+different key.
+
+**Paired does not mean Docker-connected**: signed host reports are
+self-reported, not hardware-attested. This feature does not enumerate remote
+Docker containers, run privileged remote agents, or expose new server ports.
+See [agent enrollment](docs/REMOTE_AGENT_ENROLLMENT.md) and the
+[existing VPS upgrade runbook](docs/EXISTING_VPS_UPGRADE.md) for the
+separate deployment and disposable test-host requirements.
 
 ## Security boundary
 

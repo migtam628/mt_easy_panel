@@ -30,4 +30,4 @@ jobs:
       - run: python -m pytest tests/test_verify_live_vps.py -q
       - run: python -m compileall -q agent panel
       - run: python -m pytest tests/test_enrollment.py -q
-      - run: python -m pytest tests/test_agent_heartbeat.py tests/test_host_reports.py -q
+      - run: python -m pytest tests/test_agent_heartbeat.py tests/test_host_reports.py tests/test_fleet.py -q

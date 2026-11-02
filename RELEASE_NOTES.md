@@ -1,3 +1,17 @@
+## v0.3.3-dev — Owner-scoped fleet monitoring and safe re-enrollment
+
+- Added a read-only, owner-scoped `GET /api/fleet/summary` view of up to 500 saved
+  server identities, with fresh/stale signed agent heartbeats and host reports.
+- Servers dashboard now summarizes recent signed activity, last signed host
+  report and disk-free percentage without suggesting remote Docker access.
+- Fixed identity lifecycle handling: revocation and replacement enrollment
+  clear old signed host telemetry atomically, so previous machine state cannot
+  reappear under a newly enrolled key.
+- Added integration tests for owner isolation, stale/fresh telemetry, revoked
+  identity cleanup and bounded server results.
+- No remote Docker inventory or commands, background polling, scheduled alerts,
+  inbound agent listeners or live VPS changes.
+
 ## Read-only live deployment verification
 
 - Added `scripts/verify-live-vps.py --check` to distinguish a staged checkout

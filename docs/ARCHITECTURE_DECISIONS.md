@@ -15,7 +15,7 @@
 **Tradeoff:** Frontend code must be migrated into reusable React components as the UI grows; do not let Phase 1 become an unstructured long-lived SPA.
 
 ## ADR-004 — Private-only first, no reverse-proxy takeover
-**Decision:** Default agent and dashboard bind loopback. Test access via SSH/Tailscale tunnel.
+**Decision:** Default agent and dashboard bind loopback. The current VPS dashboard is accessed using private Tailscale Serve HTTPS on port 8443 only; the host-local Docker agent remains loopback-only. Never enable Funnel or take over public ports.
 **Why:** A host with existing Caddy, Web services, and production ports should not be disrupted during bootstrap.
 
 ## ADR-005 — SQLite now, PostgreSQL later

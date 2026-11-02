@@ -1,6 +1,6 @@
 [project]
 name = "mt-panel"
-version = "0.3.2.dev0"
+version = "0.3.3.dev0"
 description = "Independent self-hosted VPS control plane and read-only Docker inventory agent"
 requires-python = ">=3.11"
 

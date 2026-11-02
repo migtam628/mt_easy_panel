@@ -143,7 +143,7 @@ async function refresh() {
         'Last host report', 'Actions'], fleet.servers.map(serverRow));
       const c = fleet.counts;
       $('table-subtitle').textContent = c.paired + ' paired · ' +
-        c.heartbeat_recent + ' recently signed-in · ' + c.heartbeat_stale +
+        c.heartbeat_recent + ' recent signed heartbeats · ' + c.heartbeat_stale +
         ' stale · ' + c.revoked + ' revoked' +
         (fleet.truncated ? ' · Showing first 500 servers' : '') +
         ' · Identity telemetry only; remote Docker control disabled.';
