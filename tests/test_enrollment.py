@@ -163,3 +163,62 @@ def test_agent_cli_rejects_unsafe_urls(url):
 def test_agent_cli_accepts_tailscale_https():
     assert checked_origin("https://moobee-stream-vps.tail08e9d7.ts.net:8443") == (
         "https://moobee-stream-vps.tail08e9d7.ts.net:8443")
+
+
+def test_cli_writes_private_key_and_signs_outbound_requests(tmp_path, monkeypatch):
+    from agent import enroll as cli
+    import os
+    server = "a" * 32
+    invite = "b" * 43
+    key_folder = tmp_path / "private"
+    key_folder.mkdir(mode=0o700)
+    key_file = key_folder / "ed25519.pem"
+    sent = []
+
+    def fake_request(origin, endpoint, payload):
+        sent.append((origin, endpoint, payload))
+        if endpoint == "/api/agents/enroll":
+            assert payload["code"] == invite
+            assert payload["server_id"] == server
+            pub = Ed25519PublicKey.from_public_bytes(base64.b64decode(payload["public_key"]))
+            pub.verify(base64.b64decode(payload["signature"]),
+                       signed_enrollment_message(server, payload["nonce"]))
+            return {"status": "paired", "server_id": server, "fingerprint": "a" * 64}
+        assert endpoint.endswith("/heartbeat")
+        assert payload["sequence"] > 0
+        assert abs(payload["timestamp"] - time.time()) < 10
+        private_key = serialization.load_pem_private_key(key_file.read_bytes(), password=None)
+        private_key.public_key().verify(
+            base64.b64decode(payload["signature"]),
+            signed_heartbeat_message(server, payload["sequence"], payload["timestamp"]))
+        return {"status": "paired", "server_id": server}
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    monkeypatch.setattr(cli.getpass, "getpass", lambda *args: invite)
+    monkeypatch.setattr(cli, "request", fake_request)
+    result = cli.enroll("https://node.tailnet.ts.net:8443", server, key_file)
+    assert result["status"] == "paired"
+    assert key_file.is_file()
+    assert key_file.stat().st_mode & 0o077 == 0
+    assert invite not in key_file.read_text()
+    with pytest.raises(ValueError):
+        cli.enroll("https://node.tailnet.ts.net:8443", server, key_file)
+    assert cli.heartbeat("https://node.tailnet.ts.net:8443", server, key_file)["ok"]
+    assert len(sent) == 2
+
+
+def test_cli_never_keeps_identity_after_failed_invitation(tmp_path, monkeypatch):
+    from agent import enroll as cli
+    from httpx import HTTPStatusError, Request, Response
+    private = tmp_path / "id.pem"
+    monkeypatch.setattr(cli.getpass, "getpass", lambda *args: "b" * 43)
+
+    def reject(*args, **kwargs):
+        response = Response(401, request=Request("POST", "https://node.tailnet.ts.net:8443"))
+        raise HTTPStatusError("rejected", request=response.request, response=response)
+
+    monkeypatch.setattr(cli, "request", reject)
+    with pytest.raises(HTTPStatusError):
+        cli.enroll("https://node.tailnet.ts.net:8443", "a" * 32, private)
+    assert not private.exists()
+    assert not list(tmp_path.glob("*.pending"))
