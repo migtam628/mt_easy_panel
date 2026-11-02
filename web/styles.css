@@ -6,3 +6,14 @@
 .resource-form label{font-size:12px;font-weight:700;color:#526575}
 .resource-form input,.resource-form textarea,.resource-form select{width:100%;padding:11px 13px;border:1px solid #d9e2e8;border-radius:8px;font:inherit;background:white}
 .resource-form .button{margin-top:9px;justify-self:start}
+
+.project-config{padding:20px 26px;display:grid;gap:12px}
+.project-config h3{margin:12px 0 2px;font-size:16px;color:#1d3344}
+.project-config label{font-size:12px;font-weight:700}
+.project-config select,.inline-config-form input{padding:11px 13px;border:1px solid #d9e2e8;border-radius:7px;font:inherit;min-width:0}
+.project-config .small{padding:0;font-size:12px}
+.config-list{border:1px solid #e5ebee;border-radius:8px;padding:12px;display:grid;gap:8px;max-height:160px;overflow:auto}
+.config-item{background:#f7fafb;border-radius:6px;padding:10px 12px;overflow-wrap:anywhere}
+.inline-config-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.inline-config-form button{justify-self:start}
+@media(max-width:660px){.inline-config-form{grid-template-columns:1fr}}
