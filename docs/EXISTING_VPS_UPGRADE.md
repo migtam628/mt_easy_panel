@@ -109,8 +109,9 @@ python3 scripts/promote-vps.py --rollback \
 ```
 
 This stops/restarts *only* the two MT Panel units, restores the old code and
-pre-upgrade SQLite snapshot, and preserves the replaced candidate under the
-backup path for inspection. **Database changes made after activation will
+pre-upgrade SQLite snapshot, and preserves the replaced candidate and a
+pre-rollback copy of the newer database under the backup path for inspection.
+It can operate even if MT Panel's currently installed units are unhealthy. **Database changes made after activation will
 be lost on rollback**; back up any new activity you want to preserve.
 Never guess the backup directory. Avoid this operation if other processes are
 writing the MT Panel SQLite database; use a maintenance period.
