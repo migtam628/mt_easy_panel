@@ -26,8 +26,10 @@ class DockerError(RuntimeError):
 
 
 class _UnixConnection(http.client.HTTPConnection):
-    def __init__(self, socket_path: str):
-        super().__init__("localhost", timeout=4)
+    def __init__(self, socket_path: str, *, timeout: float = 4):
+        # Read-only inventory stays on a short timeout; constrained lab
+        # STOP needs a longer bounded timeout for Docker's graceful shutdown.
+        super().__init__("localhost", timeout=timeout)
         self.socket_path = socket_path
 
     def connect(self):
