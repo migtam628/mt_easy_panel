@@ -1,0 +1,12 @@
+[Unit]
+Description=Send an outbound MT Panel identity heartbeat about every minute
+
+[Timer]
+OnBootSec=120s
+OnUnitInactiveSec=60s
+RandomizedDelaySec=10s
+AccuracySec=10s
+Unit=mt-panel-heartbeat.service
+
+[Install]
+WantedBy=timers.target
