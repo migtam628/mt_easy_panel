@@ -1,5 +1,6 @@
 """Metadata-only, owner-scoped server and project registry. No host access."""
 import re
+import json
 import sqlite3
 import time
 import uuid
@@ -43,6 +44,16 @@ class Registry:
                     server_id TEXT REFERENCES servers(id),
                     created_at INTEGER NOT NULL, UNIQUE(owner,slug));
                 CREATE INDEX IF NOT EXISTS projects_owner_idx ON projects(owner);
+                CREATE TABLE IF NOT EXISTS service_drafts (
+                    id TEXT PRIMARY KEY,
+                    environment_id TEXT NOT NULL REFERENCES environments(id),
+                    name TEXT NOT NULL,
+                    slug TEXT NOT NULL,
+                    manifest_json TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    UNIQUE(environment_id,slug));
+                CREATE INDEX IF NOT EXISTS service_drafts_env_idx
+                    ON service_drafts(environment_id);
                 CREATE TABLE IF NOT EXISTS environments (
                     id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id),
                     name TEXT NOT NULL, slug TEXT NOT NULL,
@@ -127,3 +138,46 @@ class Registry:
         except sqlite3.IntegrityError as error:
             raise RegistryError("Environment slug already exists",409) from error
         return {"id":item_id,"project_id":project_id,"name":name,"slug":slug,"created_at":created}
+
+    @staticmethod
+    def require_environment(db, owner, environment_id):
+        found = db.execute("""
+            SELECT e.id FROM environments e JOIN projects p ON p.id=e.project_id
+            WHERE e.id=? AND p.owner=?""", (environment_id, owner)).fetchone()
+        if not found:
+            raise RegistryError("Environment not found", 404)
+
+    def drafts(self, owner, environment_id):
+        with self.connect() as db:
+            self.require_environment(db, owner, environment_id)
+            rows = db.execute("""
+                SELECT id, environment_id, name, slug, manifest_json, created_at
+                FROM service_drafts WHERE environment_id=? ORDER BY created_at DESC
+            """, (environment_id,))
+            return [
+                {"id": r["id"], "environment_id":r["environment_id"],
+                 "name":r["name"], "slug":r["slug"],
+                 "manifest":json.loads(r["manifest_json"]),
+                 "status":"draft", "created_at":r["created_at"]}
+                for r in rows
+            ]
+
+    def add_draft(self, owner, environment_id, manifest):
+        # manifest is a validated ServiceDraft Pydantic instance.
+        item_id, created = uuid.uuid4().hex, int(time.time())
+        try:
+            with self.connect() as db:
+                self.require_environment(db, owner, environment_id)
+                db.execute("""
+                    INSERT INTO service_drafts
+                    (id,environment_id,name,slug,manifest_json,created_at)
+                    VALUES (?,?,?,?,?,?)""",
+                    (item_id,environment_id,manifest.name,manifest.slug,
+                     manifest.model_dump_json(),created))
+                self.audit(db, owner, "catalog.service_draft.created", item_id)
+        except sqlite3.IntegrityError as error:
+            raise RegistryError("Service draft slug already exists",409) from error
+        return {"id":item_id,"environment_id":environment_id,
+                "name":manifest.name,"slug":manifest.slug,
+                "manifest":manifest.model_dump(),"status":"draft",
+                "created_at":created}
