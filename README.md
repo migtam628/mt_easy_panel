@@ -151,6 +151,14 @@ to modify any container. The control plane never initiates remote
 network requests to saved servers. Reports are never scheduled automatically.
 See [agent enrollment instructions](docs/REMOTE_AGENT_ENROLLMENT.md).
 
+## Installed-release verification
+
+Run `python3 scripts/verify-live-vps.py --check --expected-version 0.3.2-dev`
+from the VPS Git checkout **after** explicitly promoting the tested
+candidate. This is a non-destructive check of live version, authentication
+boundaries, private SQLite schema, and Tailscale Serve 8443. Merely pulling
+GitHub source into `~/mt_easy_panel` does not upgrade `/opt/mt-panel`.
+
 ## Security boundary
 
 **Do not expose the agent to the Internet or the Docker daemon on unauthenticated TCP.** A Docker socket holder has root-equivalent host access, including if a socket mount is labeled `:ro`; the Python agent still needs special care even with read-only API routes. In Phase 1, only the host-local agent can open the Docker socket; the UI/API does not. Never run the dashboard as a Docker-group member. This is a test/pilot codebase, not a fully security-audited production panel.
