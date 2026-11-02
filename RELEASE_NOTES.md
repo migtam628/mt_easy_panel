@@ -1,3 +1,14 @@
+## v0.2.1-dev — Ubuntu VPS systemd pilot (manual install only)
+
+- Added read-only VPS compatibility and port preflight for Python 3.14 / Docker Engine 29.
+- Added explicit first-install-only script that stages root-owned application code, a private environment, and two separate systemd units; it **never starts services automatically**.
+- Split unprivileged control-plane account from Docker-group agent account.
+- Added unit hardening, a dedicated SQLite state directory, conservative bind addresses, and a no-proxy-takeover policy.
+- Added Ubuntu 26.04 installation, SSH/Tailscale tunnel, diagnostic and service disable instructions.
+- Added CI matrix for Python 3.12 and 3.14 plus installer syntax/security tests.
+- **Security warning:** docker group/socket grants root-equivalent authority; agent remains pilot-grade and requires hardening before production exposure.
+- No live VPS installation, modification or validation was performed by ChatGPT.
+
 ## v0.2.0-dev — Research-driven catalog and deployment draft foundation
 
 - Completed competitor analysis of Easypanel, Coolify, Dokploy, Portainer, CapRover and Dokku (documentation linked).
