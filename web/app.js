@@ -222,7 +222,12 @@ async function refreshServerIdentity() {
   const holder = $('server-identity');
   holder.replaceChildren();
   const identity = details.identity;
-  holder.append(el('div', 'State: ' + details.status, 'config-item'));
+  holder.append(el('div', 'Identity: ' + details.status, 'config-item'));
+  const signals = {not_enrolled:'Not enrolled', revoked:'Revoked',
+    never_seen:'No heartbeat received yet', recent:'Signed heartbeat received recently',
+    stale:'Last signed heartbeat is stale'};
+  holder.append(el('div', 'Heartbeat: ' +
+    (signals[details.heartbeat_state] || 'Unknown') + ' (not Docker connectivity)', 'config-item'));
   if (identity) {
     holder.append(el('div', 'Key fingerprint: ' + identity.fingerprint, 'config-item mono'));
     holder.append(el('div', 'Last signed heartbeat: ' +
