@@ -152,6 +152,9 @@ do not delete shared Docker directories.
 
 ## Upgrades
 
+For an already installed VPS, use the [existing VPS upgrade and status guide](EXISTING_VPS_UPGRADE.md) and its read-only status/staged-only update scripts. The first-install preflight is expected to refuse an existing installation.
+
+
 This script is **first-install only**. It does not update an already installed
 `/opt/mt-panel`. Pulling GitHub changes into `~/mt_easy_panel` alone will
 NOT update running systemd services. An upgrade/rollback procedure will be
