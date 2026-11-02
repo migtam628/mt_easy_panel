@@ -67,6 +67,14 @@
           <div class="table-wrap"><table><thead id="table-head"></thead><tbody id="table-body"></tbody></table></div>
           <div class="panel-foot">Read-only management · No deployment or container modifications are enabled</div>
         </section>
+        <section id="secondary-panel" class="panel hidden" aria-label="Local Docker diagnostics">
+          <div class="panel-heading"><div><h2>Local container diagnostics</h2>
+            <p id="secondary-subtitle" class="muted">On-demand read-only local Docker state.</p></div>
+            <span id="secondary-count" class="row-count">—</span></div>
+          <div class="table-wrap"><table><thead id="secondary-head"></thead>
+            <tbody id="secondary-body"></tbody></table></div>
+          <div class="panel-foot">Observed Docker state is not a continuous health monitor. No restart or write actions.</div>
+        </section>
       </section>
     </main>
   </div>
@@ -137,6 +145,18 @@
       </form>
       <pre id="compose-result" class="compose-result" aria-live="polite">No Compose configuration checked.</pre>
       <p class="error" id="project-error" role="alert"></p>
+    </div>
+  </dialog>
+  <dialog id="draft-review-dialog" aria-labelledby="draft-review-title">
+    <div class="dialog-head"><div><div class="eyebrow">PRE-DEPLOYMENT / STATIC REVIEW ONLY</div>
+      <h2 id="draft-review-title">Draft security review</h2></div>
+      <button id="close-draft-review" type="button" class="button ghost">Close ×</button></div>
+    <div class="project-config">
+      <p class="muted small">This does not reserve resources, approve deployment, or contact any remote Docker host.</p>
+      <div id="draft-review-details" class="config-list">Choose a draft to review.</div>
+      <h3>Security and readiness checks</h3>
+      <div id="draft-review-checks" class="config-list">No checks loaded.</div>
+      <p class="muted small">Execution remains disabled, even when static checks pass.</p>
     </div>
   </dialog>
   <dialog id="log-dialog" aria-labelledby="log-title">
