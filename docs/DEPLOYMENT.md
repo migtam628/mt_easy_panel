@@ -60,7 +60,7 @@ For a server already hosting a service such as a fax API behind Caddy, keep Cadd
 ```bash
 # In a separate terminal, while services are running:
 curl -fsS http://127.0.0.1:8086/api/health
-# Expected: {"ok":true,"service":"mt-panel","version":"0.1.0"}
+# Expected: {"ok":true,"service":"mt-panel","version":"0.2.0-dev"}
 
 # Agent inventory routes require authentication and should reject this:
 curl -i http://127.0.0.1:8788/v1/containers
@@ -100,3 +100,11 @@ The shipped script is a **pilot launcher**, not an unattended production install
 ## Change management
 
 There is **no automatic server installation, public deployment, DNS update, GitHub push or release** performed by the downloadable project. Those are separate user-authorized operational steps.
+
+## Configuration-only catalog and Compose preview (0.2.0-dev)
+
+The Servers and Projects UI saves identities and resource descriptions to the existing SQLite store. New server records have status `unpaired` and cannot connect to any host. Project environments and digest-pinned service drafts do not deploy containers.
+
+The new authenticated `POST /api/validate/compose` endpoint is **pure validation**, not a deployment. It accepts only a restricted subset: 1-4 services, each declaring `image` pinned to a sha256 digest, `read_only: true` and 1-3 internal `expose` ports. It rejects host ports, privileged options, bind mounts, builds, interpolation and all unrecognized configuration. No containers are started, stopped or changed.
+
+After a code upgrade, `bash scripts/dev.sh` will initialize additive SQLite tables on startup. Do not remove `state/` or `.env`; back up both before risky changes. For a disposable VPS, run the test suite before connecting to production infrastructure.
