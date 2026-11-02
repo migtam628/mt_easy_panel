@@ -86,7 +86,28 @@ function secondaryRows(headers, rows) {
   } else rows.forEach(row => body.append(row));
   $('secondary-count').textContent = rows.length + ' shown';
 }
-async function showDraftReview(draft) {
+async async function saveDraftJob(draft, button) {
+  if (!window.confirm('Save a DRY-RUN job for ' + draft.name +
+      '? This records metadata only. No container will be created or changed.')) return;
+  button.disabled = true;
+  try {
+    const key = crypto.randomUUID().replaceAll('-', '');
+    const result = await api('/api/deployments/drafts/' +
+      encodeURIComponent(draft.id) + '/jobs', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({idempotency_key: key, execute: false})
+    });
+    await refresh();
+    setMessage('Dry-run saved as ' + result.data.id.slice(0, 12) +
+      '. No Docker operations were requested.');
+  } catch (error) {
+    setMessage('Unable to save dry-run: ' + error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+function showDraftReview(draft) {
   $('draft-review-title').textContent = draft.name + ' / Static security review';
   $('draft-review-details').replaceChildren();
   $('draft-review-checks').replaceChildren();
@@ -270,7 +291,7 @@ async function refresh() {
       renderStats(null);
       const result = (await api('/api/deployments/readiness')).data;
       tableRows(['Draft', 'Project', 'Environment', 'Server', 'Image (pinned)',
-        'State / blockers', 'Review'], result.drafts.map(d => {
+        'State / blockers', 'Actions'], result.drafts.map(d => {
           const tr = plainRow([
             d.name, d.project, d.environment, d.server_name || 'Not assigned',
             d.image ? (d.image.length > 70 ? d.image.slice(0, 67) + '…' : d.image) : 'Unavailable',
@@ -280,7 +301,13 @@ async function refresh() {
           const button = el('button', 'Review policy', 'link-button');
           button.type = 'button';
           button.addEventListener('click', () => showDraftReview(d));
-          last.append(button); tr.append(last);
+          last.append(button);
+          const dryRun = el('button', 'Save dry-run', 'link-button');
+          dryRun.type = 'button';
+          dryRun.title = 'Create an audited DRAFT record only; no Docker execution';
+          dryRun.addEventListener('click', () => saveDraftJob(d, dryRun));
+          last.append(dryRun);
+          tr.append(last);
           return tr;
         }));
       $('table-subtitle').textContent = result.total_returned + ' saved drafts' +
