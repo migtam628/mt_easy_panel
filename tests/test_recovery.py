@@ -6,13 +6,43 @@ import pytest
 from fastapi.testclient import TestClient
 
 from agent.api import DemoReader, create_app as create_agent
-from agent.local_execution import ActionDenied
+from agent.local_execution import ActionDenied, LocalDockerWriter
+from agent.action_replay import ActionReplay
 from panel.api import Settings, create_app as create_panel
 from panel.auth import AuthStore
 from panel.local_jobs import LocalJobs
 from panel.manifests import ServiceDraft
 from panel.registry import Registry, RegistryError
-from tests.test_local_execution import DockerFixture, JID, DID, IMAGE, MANIFEST
+JID = "a" * 32
+DID = "b" * 32
+IMAGE = "example.test/app@sha256:" + "1" * 64
+MANIFEST = ServiceDraft(name="Lab test", slug="lab-test",
+                        image=IMAGE, container_port=8080)
+
+class DockerFixture(LocalDockerWriter):
+    def __init__(self):
+        super().__init__("/unused-lab-socket", poll_delay=0, checks=2)
+        self.container = None
+        self.requests = []
+
+    def _call(self, method, path, body=None, *, missing=False):
+        self.requests.append((method, path, body))
+        if path.startswith("/images/"):
+            return {"Config": {"Healthcheck": {"Test": ["CMD", "true"]}}}
+        if path.startswith("/containers/create?"):
+            self.container = {
+                "Name": "/mtpanel-lab-" + JID,
+                "Config": {"Labels": body["Labels"], "Image": body["Image"]},
+                "State": {"Running": False, "Health": {"Status": "starting"}},
+            }
+            return {"Id": "1" * 64}
+        if path.endswith("/json"):
+            return self.container
+        if path.endswith("/start"):
+            self.container["State"] = {"Running": True,
+                "Health": {"Status": "healthy"}}
+            return {}
+        raise AssertionError("Unexpected Docker endpoint")
 
 TOKEN = "s" * 64
 KEY = "test-dedicated-lab-hmac-" + "w" * 40
@@ -67,7 +97,7 @@ def test_docker_candidate_observation_never_mutates_and_checks_image():
     assert all(method == "GET" for method, _, _ in docker.requests[before:])
     with pytest.raises(ActionDenied, match="immutable"):
         docker.candidate_status(JID, DID, IMAGE2)
-    with pytest.raises(ActionDenied, match="ownership"):
+    with pytest.raises(ActionDenied, match="not owned"):
         docker.candidate_status(JID, "c"*32, IMAGE)
 
 
@@ -88,7 +118,7 @@ def test_agent_inspection_limited_to_exact_immutable_job(tmp_path, monkeypatch):
     docker.create_candidate(JID, DID, MANIFEST)
     c = TestClient(create_agent(reader=DemoReader(), token=TOKEN, writer=docker,
                  enable_local_writes=True, execution_key=KEY,
-                 replay=None))
+                 replay=ActionReplay(str(tmp_path / "actions.db"))))
     url = f"/v1/lab/candidates/{JID}"
     # Test client uses agent defaults but a temp replay DB for startup.
     headers = {"Authorization": "Bearer " + TOKEN}
@@ -154,7 +184,7 @@ def test_unknown_and_absent_candidates_never_release_host(tmp_path, monkeypatch)
     assert client.post(path + "/reconcile", headers=approved).status_code == 200
     assert jobs.details("owner", job["id"])["state"] == "NEEDS_REVIEW"
     agent.failure = True
-    assert client.get(path + "/recovery").status_code == 500 or True
+    assert client.get(path + "/recovery").status_code == 503
     # Error responses never permit writes or unlock the host.
     assert jobs.details("owner", job["id"])["state"] == "NEEDS_REVIEW"
 
