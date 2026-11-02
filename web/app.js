@@ -7,7 +7,7 @@ const descriptions = {
   images: ['Container images', 'Available local Docker images.', 'Images'],
   networks: ['Networks', 'Docker network inventory.', 'Network inventory'],
   volumes: ['Volumes', 'Named persistent Docker volumes (mount paths hidden).', 'Volume inventory'],
-  servers: ['Servers', 'Server identities are not connected until secure pairing is implemented.', 'Server registry'],
+  servers: ['Servers', 'Monitor verified agent identities and signed host health. Remote Docker access remains disabled.', 'Fleet health'],
   projects: ['Projects', 'Configuration-only application workspaces.', 'Projects'],
   activity: ['Activity', 'Recent administrative sign-in and sign-out events.', 'Security audit log'],
 };
@@ -79,10 +79,19 @@ function containerRow(c) {
   last.append(button); tr.append(last); return tr;
 }
 function serverRow(x) {
-  const tr = plainRow([x.name, x.status, x.notes || '—',
-    new Date(x.created_at * 1000).toLocaleDateString()]);
+  const heartbeat = {
+    recent: 'Signed recently', stale: 'Stale', never_seen: 'Never received',
+    revoked: 'Revoked', unpaired: 'Not paired'
+  };
+  const host = x.health
+    ? x.health.hostname + ' · ' + x.health.disk_free_percent + '% disk free'
+    : 'No signed report';
+  const tr = plainRow([x.name, x.status,
+    heartbeat[x.heartbeat_state] || 'Unknown',
+    (x.report_state === 'recent' ? 'Recent · ' : x.report_state === 'stale' ? 'Stale · ' : '') + host,
+    x.last_report ? new Date(x.last_report * 1000).toLocaleString() : '—']);
   const td = document.createElement('td');
-  const button = el('button', 'Identity', 'link-button');
+  const button = el('button', 'Identity / health', 'link-button');
   button.type = 'button';
   button.addEventListener('click', () => openServer(x));
   td.append(button); tr.append(td);
@@ -129,9 +138,15 @@ async function refresh() {
       $('table-subtitle').textContent = `${ov.data.hostname} · Docker ${ov.data.docker_version}`;
     } else if (view === 'servers') {
       renderStats(null);
-      const items = (await api('/api/catalog/servers')).data;
-      tableRows(['Name', 'Identity', 'Notes', 'Created', 'Actions'], items.map(serverRow));
-      $('table-subtitle').textContent = 'Signed enrollment and heartbeat metadata only; Docker control remains disabled.';
+      const fleet = (await api('/api/fleet/summary')).data;
+      tableRows(['Server', 'Enrollment', 'Signed heartbeat', 'Signed host report',
+        'Last host report', 'Actions'], fleet.servers.map(serverRow));
+      const c = fleet.counts;
+      $('table-subtitle').textContent = c.paired + ' paired · ' +
+        c.heartbeat_recent + ' recently signed-in · ' + c.heartbeat_stale +
+        ' stale · ' + c.revoked + ' revoked' +
+        (fleet.truncated ? ' · Showing first 500 servers' : '') +
+        ' · Identity telemetry only; remote Docker control disabled.';
     } else if (view === 'projects') {
       renderStats(null);
       const items = (await api('/api/catalog/projects')).data;
