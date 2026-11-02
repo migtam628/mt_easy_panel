@@ -10,7 +10,7 @@ Order matters: host identity and API hardening precede all write actions.
 | MTP-04 | P0 | Server registry | Partial: owner-scoped saved identities; **remote pairing / heartbeat / revocation pending** |
 | MTP-05 | P0 | Project/resource ownership | Partial: owner-scoped project/environment/draft persistence, write audit, API/UI; multi-user pending |
 | MTP-06 | P0 | Declarative service manifest | Partial: digest-pinned image drafts, strict resource caps, read-only rootfs; Compose and volume policy pending |
-| MTP-07 | P0 | Compose normalization + policy | `docker compose config --format json` and independent deny rules for host roots/privileged/docker sockets |
+| MTP-07 | P0 | Compose normalization + policy | **Partial:** static restrictive YAML preview with reject rules; real Compose normalization/integration and Docker tests pending |
 | MTP-08 | P0 | Queued job runner | Idempotency key, per-host locks, lease expiry, bounded retries, cancellation semantics |
 | MTP-09 | P0 | Signed agent job execution | Only approved job type/id and validated manifest; no arbitrary shell/API passthrough |
 | MTP-10 | P1 | GitHub repository source | GitHub App/deploy key with minimal scopes; immutable commit checkout; webhook replay validation |
