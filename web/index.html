@@ -23,7 +23,7 @@
         <p id="login-error" class="error" role="alert"></p>
         <button type="submit" class="button primary wide">Sign in <span>↗</span></button>
       </form>
-      <div class="login-foot">Version 0.1.2 · Private server operations</div>
+      <div class="login-foot">Version 0.2.0-dev · Private server operations</div>
     </div>
   </div>
   <div id="shell" class="shell hidden">
@@ -32,6 +32,8 @@
       <div class="nav-section">WORKSPACE</div>
       <nav id="navigation" aria-label="Main navigation">
         <button class="nav-item active" data-view="overview"><span class="nav-icon">◫</span> Overview</button>
+        <button class="nav-item" data-view="servers"><span class="nav-icon">▧</span> Servers</button>
+        <button class="nav-item" data-view="projects"><span class="nav-icon">◇</span> Projects</button>
         <button class="nav-item" data-view="containers"><span class="nav-icon">▤</span> Containers</button>
         <button class="nav-item" data-view="images"><span class="nav-icon">◈</span> Images</button>
         <button class="nav-item" data-view="networks"><span class="nav-icon">⌘</span> Networks</button>
@@ -44,7 +46,7 @@
       <div class="nav-disabled">⚙ &nbsp; Settings <span>soon</span></div>
       <div class="sidebar-bottom">
         <div class="server-pill"><span class="status-dot"></span><span>Local host agent</span><span id="agent-state">Checking</span></div>
-        <div class="sidebar-footer">MT Tech Services · v0.1.2</div>
+        <div class="sidebar-footer">MT Tech Services · v0.2.0-dev</div>
       </div>
     </aside>
     <main class="workspace">
@@ -53,18 +55,33 @@
         <div class="top-actions"><span class="readonly">◉ &nbsp;READ-ONLY MODE</span><button id="refresh" class="button ghost">↻ &nbsp;Refresh</button><span class="avatar" id="avatar">A</span><button class="button text-button" id="logout">Sign out</button></div>
       </header>
       <section class="content">
-        <div class="page-heading"><div><div class="eyebrow">OPERATIONS CENTER / V0.1.2</div><h1 id="page-title">Infrastructure overview</h1><p id="page-desc" class="muted">A real-time snapshot of your local Docker host.</p></div><div class="updated" id="updated">Not yet refreshed</div></div>
+        <div class="page-heading"><div><div class="eyebrow">OPERATIONS CENTER / V0.2.0-dev</div><h1 id="page-title">Infrastructure overview</h1><p id="page-desc" class="muted">A real-time snapshot of your local Docker host.</p></div><div class="updated" id="updated">Not yet refreshed</div></div>
         <div id="banner" class="banner hidden" role="status"></div>
         <div id="demo-banner" class="demo-banner hidden">DEMO DATA — This is a sample inventory, not a connected server.</div>
         <div id="stats" class="stats"></div>
         <section class="panel">
-          <div class="panel-heading"><div><h2 id="table-title">Container inventory</h2><p id="table-subtitle" class="muted">Observed Docker resources on this host.</p></div><span id="row-count" class="row-count">—</span></div>
+          <div class="panel-heading"><div><h2 id="table-title">Container inventory</h2><p id="table-subtitle" class="muted">Observed Docker resources on this host.</p></div><div class="heading-actions"><button id="create-resource" class="button primary hidden" type="button">+ Add</button><span id="row-count" class="row-count">—</span></div></div>
           <div class="table-wrap"><table><thead id="table-head"></thead><tbody id="table-body"></tbody></table></div>
           <div class="panel-foot">Read-only management · No deployment or container modifications are enabled</div>
         </section>
       </section>
     </main>
   </div>
+  <dialog id="resource-dialog" aria-labelledby="resource-title">
+    <div class="dialog-head"><h2 id="resource-title">New configuration</h2><button id="close-resource" class="button ghost" type="button">Close ×</button></div>
+    <form id="resource-form" class="resource-form">
+      <label for="resource-name">Display name</label>
+      <input id="resource-name" required minlength="2" maxlength="72">
+      <label for="resource-slug" id="slug-label">Slug (lowercase letters and hyphens)</label>
+      <input id="resource-slug" minlength="2" maxlength="48" pattern="[a-z][a-z0-9-]{1,47}">
+      <label for="resource-server" id="server-label">Server (optional)</label>
+      <select id="resource-server"><option value="">Unassigned</option></select>
+      <label for="resource-notes" id="notes-label">Notes (optional)</label>
+      <textarea id="resource-notes" maxlength="500" rows="3"></textarea>
+      <p id="resource-error" class="error" role="alert"></p>
+      <button type="submit" class="button primary">Save configuration</button>
+    </form>
+  </dialog>
   <dialog id="log-dialog" aria-labelledby="log-title">
     <div class="dialog-head"><div><div class="eyebrow">CONTAINER LOGS · LAST 80 LINES</div><h2 id="log-title">Logs</h2></div><button class="button ghost" id="close-log">Close ×</button></div>
     <pre id="log-output">Loading logs…</pre>
