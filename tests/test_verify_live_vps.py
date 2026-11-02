@@ -113,3 +113,29 @@ def test_verifier_uses_localhost_and_read_only_pragmas():
     for unsafe in ("docker run", "docker rm", "docker compose", "systemctl restart",
                    "systemctl stop", "tailscale serve reset", "tailscale funnel"):
         assert unsafe not in source
+
+
+def test_post_promotion_verifier_reports_staged_not_active_once(monkeypatch, capsys):
+    m = load_module()
+    monkeypatch.setattr(m, "get_local", lambda port, path:
+                        (200, {"ok": True, "service": "mt-panel",
+                               "version": "0.3.5-dev"}))
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Do not probe future-only routes or schema before activation")
+    monkeypatch.setattr(m, "check_http", forbidden)
+    monkeypatch.setattr(m, "check_database", forbidden)
+    monkeypatch.setattr(m, "check_tailscale", forbidden)
+    monkeypatch.setattr(m, "check_revision", forbidden)
+    monkeypatch.setattr("sys.argv", [
+        "verify-live-vps.py", "--check", "--expected-version", "0.3.6-dev"
+    ])
+    import pytest
+    with pytest.raises(SystemExit) as result:
+        m.main()
+    assert result.value.code == 2
+    captured = capsys.readouterr()
+    assert "NOT ACTIVE" in captured.out
+    assert "STAGED RELEASE NOT YET PROMOTED" in captured.out
+    assert "promote-vps.py --check" in captured.out
+    assert "Missing schema" not in captured.out
+    assert "FAIL:" not in captured.err
