@@ -1,6 +1,6 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
-const state = {view: 'overview', containers: [], overview: null};
+const state = {view: 'overview', containers: [], overview: null, projectId: null};
 const descriptions = {
   overview: ['Infrastructure overview', 'A real-time snapshot of your local Docker host.', 'Container inventory'],
   containers: ['Containers', 'Inspect running and stopped workloads.', 'All containers'],
@@ -78,6 +78,16 @@ function containerRow(c) {
   button.type = 'button'; button.addEventListener('click', () => openLogs(c));
   last.append(button); tr.append(last); return tr;
 }
+function projectRow(x) {
+  const tr = plainRow([x.name, x.slug, x.server_id ? x.server_id.slice(0,12) : 'Unassigned', x.environment_count]);
+  const td = document.createElement('td');
+  const button = el('button', 'Manage', 'link-button');
+  button.type = 'button';
+  button.addEventListener('click', () => openProject(x));
+  td.append(button);
+  tr.append(td);
+  return tr;
+}
 function plainRow(values) {
   const tr = document.createElement('tr');
   values.forEach((v,i) => cell(tr, v, i === 1 ? 'mono' : ''));
@@ -117,9 +127,8 @@ async function refresh() {
     } else if (view === 'projects') {
       renderStats(null);
       const items = (await api('/api/catalog/projects')).data;
-      tableRows(['Project', 'Slug', 'Server ID', 'Environments'],
-        items.map(x => plainRow([x.name, x.slug,
-          x.server_id ? x.server_id.slice(0, 12) : 'Unassigned', x.environment_count])));
+      tableRows(['Project', 'Slug', 'Server ID', 'Environments', 'Actions'],
+        items.map(projectRow));
       $('table-subtitle').textContent = 'Saved application workspaces; no deployments have been created.';
     } else if (view === 'activity') {
       renderStats(null);
@@ -199,7 +208,77 @@ async function submitResource(event) {
     await refresh();
   } catch (error) { $('resource-error').textContent = error.message; }
 }
+async function openProject(project) {
+  state.projectId = project.id;
+  $('project-dialog-title').textContent = project.name + ' / Environments';
+  $('project-error').textContent = '';
+  $('project-dialog').showModal();
+  await refreshProject();
+}
+async function refreshProject() {
+  if (!state.projectId) return;
+  try {
+    const envs = (await api('/api/catalog/projects/' + encodeURIComponent(state.projectId) + '/environments')).data;
+    const list = $('project-environments');
+    list.replaceChildren();
+    if (!envs.length) list.append(el('div', 'No environments yet.', 'muted'));
+    else envs.forEach(e => list.append(el('div', e.name + ' (' + e.slug + ')', 'config-item')));
+    const select = $('draft-environment');
+    const previous = select.value;
+    select.replaceChildren(new Option('Choose environment', ''));
+    envs.forEach(e => select.add(new Option(e.name, e.id)));
+    if (envs.some(e => e.id === previous)) select.value = previous;
+    else if (envs.length) select.value = envs[0].id;
+    await refreshDrafts();
+  } catch (error) { $('project-error').textContent = error.message; }
+}
+async function refreshDrafts() {
+  const id = $('draft-environment').value;
+  const list = $('project-drafts');
+  list.replaceChildren();
+  if (!id) {
+    list.append(el('div', 'Choose an environment to view drafts.', 'muted'));
+    return;
+  }
+  try {
+    const drafts = (await api('/api/catalog/environments/' + encodeURIComponent(id) + '/drafts')).data;
+    if (!drafts.length) list.append(el('div', 'No drafts configured.', 'muted'));
+    else drafts.forEach(d => list.append(el('div', d.name + ' — ' + d.manifest.image + ' (draft only)', 'config-item mono')));
+  } catch (error) { $('project-error').textContent = error.message; }
+}
+async function createEnvironment(event) {
+  event.preventDefault();
+  $('project-error').textContent = '';
+  try {
+    await api('/api/catalog/projects/' + encodeURIComponent(state.projectId) + '/environments', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:$('environment-name').value,slug:$('environment-slug').value})
+    });
+    $('environment-form').reset();
+    await refreshProject();
+    await refresh();
+  } catch (error) { $('project-error').textContent = error.message; }
+}
+async function createDraft(event) {
+  event.preventDefault();
+  const envId = $('draft-environment').value;
+  if (!envId) { $('project-error').textContent = 'Create an environment first.'; return; }
+  $('project-error').textContent = '';
+  try {
+    await api('/api/catalog/environments/' + encodeURIComponent(envId) + '/drafts', {
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:$('draft-name').value,slug:$('draft-slug').value,
+        image:$('draft-image').value,container_port:Number($('draft-port').value)})
+    });
+    $('draft-form').reset();
+    await refreshDrafts();
+  } catch (error) { $('project-error').textContent = error.message; }
+}
 async function init() {
+  $('close-project').addEventListener('click', () => $('project-dialog').close());
+  $('environment-form').addEventListener('submit', createEnvironment);
+  $('draft-environment').addEventListener('change', refreshDrafts);
+  $('draft-form').addEventListener('submit', createDraft);
   $('create-resource').addEventListener('click', showResourceForm);
   $('close-resource').addEventListener('click', () => $('resource-dialog').close());
   $('resource-form').addEventListener('submit', submitResource);
