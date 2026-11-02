@@ -1,0 +1,31 @@
+[Unit]
+Description=MT Panel host-local Docker inventory agent (read-only pilot)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=mtpanel-agent
+Group=mtpanel-agent
+SupplementaryGroups=docker
+WorkingDirectory=/opt/mt-panel
+EnvironmentFile=/etc/mt-panel/mt-panel.env
+ExecStart=/opt/mt-panel/.venv/bin/python -m uvicorn --factory agent.api:app_factory --host 127.0.0.1 --port 8788
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+LockPersonality=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
