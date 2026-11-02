@@ -81,7 +81,15 @@ class EnrollmentStore:
             row = db.execute("""SELECT fingerprint,enrolled_at,revoked_at,last_seen,
                                 last_sequence FROM agent_identities WHERE server_id=?""",
                              (server_id,)).fetchone()
+            heartbeat_state = "not_enrolled"
+            if status == "revoked":
+                heartbeat_state = "revoked"
+            elif status == "paired" and row:
+                seen = row["last_seen"]
+                heartbeat_state = ("never_seen" if seen is None else
+                                   "recent" if int(time.time()) - seen <= 180 else "stale")
             return {"server_id": server_id, "status": status,
+                    "heartbeat_state": heartbeat_state,
                     "identity": dict(row) if row else None}
 
     def create_invite(self, owner: str, server_id: str) -> dict:
