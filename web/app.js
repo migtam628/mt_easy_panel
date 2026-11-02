@@ -222,6 +222,7 @@ async function refreshServerIdentity() {
   const holder = $('server-identity');
   holder.replaceChildren();
   const identity = details.identity;
+  holder.append(el('div', 'Server ID: ' + state.serverId, 'config-item mono'));
   holder.append(el('div', 'Identity: ' + details.status, 'config-item'));
   const signals = {not_enrolled:'Not enrolled', revoked:'Revoked',
     never_seen:'No heartbeat received yet', recent:'Signed heartbeat received recently',
@@ -234,6 +235,26 @@ async function refreshServerIdentity() {
       (identity.last_seen ? new Date(identity.last_seen * 1000).toLocaleString() : 'Not received'),
       'config-item'));
     holder.append(el('div', 'Last sequence: ' + identity.last_sequence, 'config-item mono'));
+  }
+  const reportHolder = $('server-host-report');
+  reportHolder.replaceChildren();
+  const report = (await api('/api/catalog/servers/' +
+    encodeURIComponent(state.serverId) + '/host-report')).data;
+  if (!report.snapshot) {
+    reportHolder.append(el('div', 'No available signed host report (' + report.state + ')',
+      'config-item'));
+  } else {
+    const snapshot = report.snapshot;
+    reportHolder.append(el('div', 'Report: ' + report.state +
+      ' · ' + new Date(report.received_at * 1000).toLocaleString(), 'config-item'));
+    reportHolder.append(el('div', 'Host: ' + snapshot.hostname + ' · ' +
+      snapshot.system, 'config-item'));
+    reportHolder.append(el('div', 'CPU: ' + snapshot.cpu_count +
+      ' · RAM: ' + size(snapshot.memory_total_bytes), 'config-item'));
+    reportHolder.append(el('div', 'Disk available: ' + size(snapshot.disk_free_bytes) +
+      ' / ' + size(snapshot.disk_total_bytes) +
+      ' · Uptime: ' + Math.floor(snapshot.uptime_seconds / 3600) + ' h',
+      'config-item'));
   }
   $('server-invite').disabled = details.status === 'paired';
   $('server-revoke').disabled = details.status === 'revoked';
