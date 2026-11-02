@@ -7,7 +7,7 @@ Order matters: host identity and API hardening precede all write actions.
 | MTP-01 | P0 | PostgreSQL schema and migrations | Isolated migration test; non-destructive import of Phase 1 owner data |
 | MTP-02 | P0 | Durable audit log | **In progress (v0.1.2):** persistent bootstrap/login/logout audit completed; configuration/job audit, retention, and PostgreSQL migration remain |
 | MTP-03 | P0 | Trusted agent enrollment | **Partial v0.3.1-dev:** one-time invitation, Ed25519 proof, durable heartbeat sequence, optional user timer, revocation; remote inventory, host attestation and deploy execution pending |
-| MTP-04 | P0 | Server registry | **Partial v0.3.1-dev:** owner-scoped identities, pairing, fresh/stale signed heartbeat and revocation; remote inventory and agent-host policy pending |
+| MTP-04 | P0 | Server registry | **Partial v0.3.2-dev:** owner-scoped identity, signed heartbeats and host health, freshness, revocation; remote Docker inventory and agent-host policy pending |
 | MTP-05 | P0 | Project/resource ownership | Partial: owner-scoped project/environment/draft persistence, write audit, API/UI; multi-user pending |
 | MTP-06 | P0 | Declarative service manifest | Partial: digest-pinned image drafts, strict resource caps, read-only rootfs; Compose and volume policy pending |
 | MTP-07 | P0 | Compose normalization + policy | **Partial:** static restrictive YAML preview with reject rules; real Compose normalization/integration and Docker tests pending |

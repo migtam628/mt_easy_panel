@@ -134,6 +134,28 @@ The heartbeat sequence counter is saved beside the private key in a private
 continues increasing across process restarts and backward wall-clock changes.
 A lost request can skip a number, but an old number cannot be replayed.
 
+## Optional signed, read-only Linux host reports
+
+An enrolled Linux agent can send one system-health snapshot using:
+
+```bash
+cd ~/mt_easy_panel
+.venv/bin/python -m agent.heartbeat --report \
+  --config ~/.config/mt-panel/heartbeat.json
+```
+
+This reuses the owner's Tailscale HTTPS origin and enrolled Ed25519
+identity. Only hostname, Linux kernel release, CPU count, RAM, total/free
+root disk capacity and uptime are accepted. IP addresses, environment
+values, file paths, Docker objects, commands and arbitrary extra fields
+are rejected. The controller never connects to the agent.
+
+The owner may view the last accepted report at
+**Servers > Identity > Signed host health**. The dashboard distinguishes
+recent from stale telemetry; it does not claim Docker connectivity.
+The optional supplied systemd user timer still sends heartbeat-only
+requests by default. No host report is scheduled automatically.
+
 ## Current limits
 
 - Heartbeat CLI supports manual one-shot use and an **optional, uninstalled**

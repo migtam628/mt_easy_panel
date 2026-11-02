@@ -1,8 +1,8 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.1-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.2-dev`.
 
-MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The dedicated Ubuntu 26.04 systemd pilot installer and Python 3.14 CI checks are available, but live Docker inventory and installer operation on the user's VPS are not yet verified.
+MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
 ## Quick start
 
@@ -136,6 +136,20 @@ Durable, synchronized sequence counters prevent reuse after clock corrections.
 No timer is enabled by installing or upgrading MT Panel, and the control
 plane never executes commands on an enrolled host. Follow the
 [agent enrollment guide](docs/REMOTE_AGENT_ENROLLMENT.md).
+
+## Signed host-health reports (v0.3.2-dev)
+
+An enrolled Tailscale-connected agent may **optionally** submit a signed
+host summary using `python -m agent.heartbeat --report --config PATH`.
+The fixed report schema contains hostname, Linux release, CPU count,
+total RAM, disk capacity/free space and uptime. Each report is bound
+to its enrolled Ed25519 key, strict schema, clock window and sequence.
+Owners can view recent/stale snapshots under Servers > Identity.
+
+A signed report is not proof of remote Docker connectivity or permission
+to modify any container. The control plane never initiates remote
+network requests to saved servers. Reports are never scheduled automatically.
+See [agent enrollment instructions](docs/REMOTE_AGENT_ENROLLMENT.md).
 
 ## Security boundary
 

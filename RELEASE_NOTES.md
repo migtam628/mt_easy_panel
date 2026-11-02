@@ -1,3 +1,14 @@
+## v0.3.2-dev — Signed read-only Linux host summaries
+
+- Added bounded strict host-report schema and Ed25519 signature domain.
+- Included only host name, OS, CPU count, memory, disk totals and uptime.
+- Verified ownership, freshness, timestamps, revocation and replay.
+- Shared one durable sequence counter with agent heartbeats.
+- Added opt-in `agent.heartbeat --report --config PATH` (one-shot).
+- Added owner-only host-health readback in the Servers identity dialog.
+- Added tests for signature tampering, extra fields and revocation.
+- No remote Docker inventory, Docker writes, SSH keys or inbound agent ports.
+
 ## v0.3.1-dev — Durable outbound agent heartbeats
 
 - Added a durable owner-only `*.sequence` heartbeat counter using Linux file locks and fsync; signed sequence numbers survive agent restarts and backward clock adjustments.

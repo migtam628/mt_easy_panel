@@ -29,3 +29,4 @@ jobs:
       - run: python -m py_compile scripts/promote-vps.py scripts/vps-status.py
       - run: python -m compileall -q agent panel
       - run: python -m pytest tests/test_enrollment.py -q
+      - run: python -m pytest tests/test_agent_heartbeat.py tests/test_host_reports.py -q
