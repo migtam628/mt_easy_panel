@@ -7,6 +7,8 @@ const descriptions = {
   images: ['Container images', 'Available local Docker images.', 'Images'],
   networks: ['Networks', 'Docker network inventory.', 'Network inventory'],
   volumes: ['Volumes', 'Named persistent Docker volumes (mount paths hidden).', 'Volume inventory'],
+  servers: ['Servers', 'Server identities are not connected until secure pairing is implemented.', 'Server registry'],
+  projects: ['Projects', 'Configuration-only application workspaces.', 'Projects'],
   activity: ['Activity', 'Recent administrative sign-in and sign-out events.', 'Security audit log'],
 };
 async function api(path, options = {}) {
@@ -105,6 +107,20 @@ async function refresh() {
       document.querySelector('.status-dot').classList.add('ok');
       $('demo-banner').classList.toggle('hidden', ov.data.source !== 'demo');
       $('table-subtitle').textContent = `${ov.data.hostname} · Docker ${ov.data.docker_version}`;
+    } else if (view === 'servers') {
+      renderStats(null);
+      const items = (await api('/api/catalog/servers')).data;
+      tableRows(['Name', 'Connection', 'Notes', 'Created'],
+        items.map(x => plainRow([x.name, 'Not paired', x.notes || '—',
+          new Date(x.created_at * 1000).toLocaleDateString()])));
+      $('table-subtitle').textContent = 'Saved identities only; no SSH connection or host access.';
+    } else if (view === 'projects') {
+      renderStats(null);
+      const items = (await api('/api/catalog/projects')).data;
+      tableRows(['Project', 'Slug', 'Server ID', 'Environments'],
+        items.map(x => plainRow([x.name, x.slug,
+          x.server_id ? x.server_id.slice(0, 12) : 'Unassigned', x.environment_count])));
+      $('table-subtitle').textContent = 'Saved application workspaces; no deployments have been created.';
     } else if (view === 'activity') {
       renderStats(null);
       const data = (await api('/api/audit/events?limit=100')).data;
@@ -140,9 +156,53 @@ function switchView(view) {
   $('page-title').textContent = desc[0]; $('breadcrumb').textContent = desc[0];
   $('page-desc').textContent = desc[1]; $('table-title').textContent = desc[2];
   $('demo-banner').classList.add('hidden');
+  $('create-resource').classList.toggle('hidden', !['servers','projects'].includes(view));
+  $('create-resource').textContent = view === 'servers' ? '+ Add server' : '+ New project';
   refresh();
 }
+async function showResourceForm() {
+  const project = state.view === 'projects';
+  $('resource-title').textContent = project ? 'Create project' : 'Register server (configuration only)';
+  $('resource-form').reset();
+  $('resource-error').textContent = '';
+  for (const name of ['slug','server']) {
+    $(name + '-label').classList.toggle('hidden', !project);
+    $('resource-' + name).classList.toggle('hidden', !project);
+  }
+  $('resource-slug').required = project;
+  $('notes-label').classList.toggle('hidden', project);
+  $('resource-notes').classList.toggle('hidden', project);
+  if (project) {
+    try {
+      const select = $('resource-server');
+      select.replaceChildren(new Option('Unassigned', ''));
+      const servers = (await api('/api/catalog/servers')).data;
+      servers.forEach(s => select.add(new Option(s.name + ' (not paired)', s.id)));
+    } catch (error) { setMessage(error.message); return; }
+  }
+  $('resource-dialog').showModal();
+}
+async function submitResource(event) {
+  event.preventDefault();
+  const project = state.view === 'projects';
+  const payload = project
+    ? {name: $('resource-name').value, slug: $('resource-slug').value,
+       server_id: $('resource-server').value || null}
+    : {name: $('resource-name').value, notes: $('resource-notes').value};
+  $('resource-error').textContent = '';
+  try {
+    await api('/api/catalog/' + (project ? 'projects' : 'servers'), {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    $('resource-dialog').close();
+    await refresh();
+  } catch (error) { $('resource-error').textContent = error.message; }
+}
 async function init() {
+  $('create-resource').addEventListener('click', showResourceForm);
+  $('close-resource').addEventListener('click', () => $('resource-dialog').close());
+  $('resource-form').addEventListener('submit', submitResource);
   document.querySelectorAll('.nav-item').forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
   $('refresh').addEventListener('click', refresh);
   $('close-log').addEventListener('click', () => $('log-dialog').close());
