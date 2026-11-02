@@ -13,7 +13,7 @@ import time
 from urllib.parse import quote, urlencode
 
 from agent.docker import _UnixConnection, DockerError
-from panel.manifests import ServiceDraft
+from panel.manifests import DIGEST, ServiceDraft
 
 HEX = re.compile(r"^[0-9a-f]{32}$")
 LABEL = "io.mtpanel.lab.managed"
@@ -73,19 +73,21 @@ class LocalDockerWriter:
         name = self._name(job_id)
         return self._call("GET", "/containers/" + name + "/json", missing=True)
 
-    def candidate_status(self, job_id: str, draft_id: str) -> dict:
+    def candidate_status(self, job_id: str, draft_id: str, expected_image: str) -> dict:
         """Read-only, sanitized observation of one exact lab-owned candidate.
 
         A missing container is NOT proof of rollback or safe retry. A
         same-name container with wrong ownership is always denied.
         """
-        if not HEX.fullmatch(draft_id):
-            raise ActionDenied("Invalid deployment draft identifier")
+        if not HEX.fullmatch(draft_id) or not DIGEST.fullmatch(expected_image):
+            raise ActionDenied("Invalid lab candidate verification parameters")
         item = self.inspect(job_id)
         if item is None:
             return {"observation": "absent", "present": False,
                     "safe_to_retry": False, "traffic_switched": False}
         self._ownership(item, job_id, draft_id)
+        if item.get("Config", {}).get("Image") != expected_image:
+            raise ActionDenied("Candidate image does not match immutable job manifest")
         state = item.get("State")
         if not isinstance(state, dict):
             raise DockerError("Managed candidate state unavailable")
