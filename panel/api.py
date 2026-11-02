@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from panel.registry import Registry, RegistryError
+from panel.enrollment import EnrollmentStore
 from panel.manifests import ServiceDraft
 from panel.compose_policy import ComposePolicyError, validate_compose
 
@@ -112,6 +113,20 @@ class EnvironmentData(BaseModel):
     slug: str = Field(min_length=2, max_length=48)
 
 
+class EnrollmentProof(BaseModel):
+    server_id: str = Field(min_length=32, max_length=32)
+    code: str = Field(min_length=43, max_length=43)
+    public_key: str = Field(min_length=40, max_length=60)
+    signature: str = Field(min_length=80, max_length=120)
+    nonce: str = Field(min_length=43, max_length=43)
+
+
+class AgentHeartbeat(BaseModel):
+    sequence: int = Field(ge=1, le=2**63 - 1)
+    timestamp: int = Field(ge=1)
+    signature: str = Field(min_length=80, max_length=120)
+
+
 class LoginData(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
@@ -122,8 +137,9 @@ def create_app(settings: Settings | None = None, agent=None):
     settings.validate()
     store = AuthStore(settings.db_path)
     registry = Registry(settings.db_path)
+    enrollment = EnrollmentStore(settings.db_path)
     agent = agent or AgentClient(settings)
-    app = FastAPI(title="MT Panel", version="0.2.1-dev", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="MT Panel", version="0.3.0-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
     # In-memory login throttling is a Phase 1 local guard only; production needs
     # persistent, multi-instance throttling plus MFA and reverse-proxy controls.
@@ -161,7 +177,7 @@ def create_app(settings: Settings | None = None, agent=None):
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "service": "mt-panel", "version": "0.2.1-dev"}
+        return {"ok": True, "service": "mt-panel", "version": "0.3.0-dev"}
 
     @app.get("/api/setup")
     def setup():
@@ -223,6 +239,33 @@ def create_app(settings: Settings | None = None, agent=None):
     def create_server(data: ServerData, request: Request, user=Depends(current_user)):
         require_write_origin(request)
         return registry_action(registry.add_server, user["username"], data.name, data.notes)
+
+    @app.get("/api/catalog/servers/{server_id}/identity")
+    def server_identity(server_id: str, user=Depends(current_user)):
+        return registry_action(enrollment.server_identity, user["username"], server_id)
+
+    @app.post("/api/catalog/servers/{server_id}/invites", status_code=201)
+    def generate_agent_invite(server_id: str, request: Request, user=Depends(current_user)):
+        require_write_origin(request)
+        return registry_action(enrollment.create_invite, user["username"], server_id)
+
+    @app.post("/api/catalog/servers/{server_id}/revoke")
+    def revoke_agent(server_id: str, request: Request, user=Depends(current_user)):
+        require_write_origin(request)
+        return registry_action(enrollment.revoke, user["username"], server_id)
+
+    @app.post("/api/agents/enroll")
+    def register_agent(proof: EnrollmentProof):
+        # Code is short-lived, random and single-use, with a proof of possession.
+        # No remote URL or Docker call is accepted on this endpoint.
+        return registry_action(enrollment.enroll, proof.server_id, proof.code,
+                               proof.public_key, proof.signature, proof.nonce)
+
+    @app.post("/api/agents/{server_id}/heartbeat")
+    def signed_heartbeat(server_id: str, payload: AgentHeartbeat):
+        # Signed monotonic sequence prevents replay, even in the clock-skew window.
+        return registry_action(enrollment.heartbeat, server_id, payload.sequence,
+                               payload.timestamp, payload.signature)
 
     @app.get("/api/catalog/projects")
     def list_projects(user=Depends(current_user)):
