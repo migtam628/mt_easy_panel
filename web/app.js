@@ -242,6 +242,8 @@ async function refresh() {
       showGuide('Monitoring is on-demand only. No background polling, alerts, remote Docker access, or automatic interventions are active.');
       const localDiagnostics = (await api('/api/monitoring/diagnostics')).data;
       $('secondary-panel').classList.remove('hidden');
+      $('secondary-title').textContent = 'Local container diagnostics';
+      $('secondary-footer').textContent = 'Docker state is on-demand observation, not continuous health monitoring. No restart or write actions.';
       if (localDiagnostics.state === 'unavailable') {
         secondaryRows(['Container', 'State', 'Docker status', 'Health indicator'], []);
         $('secondary-subtitle').textContent = 'Local Docker inventory unavailable. No health status inferred.';
@@ -282,8 +284,17 @@ async function refresh() {
           return tr;
         }));
       $('table-subtitle').textContent = result.total_returned + ' saved drafts' +
-        (result.truncated ? ' (first 200)' : '') + ' · 0 executable deployments';
-      showGuide('Read-only deployment readiness. Drafts are not running workloads. No deployment queue, builds, Compose up, or Docker writes are implemented. Create drafts under Projects.');
+        (result.truncated ? ' (first 200)' : '') + ' · 0 production-ready deployments';
+      const labJobs = (await api('/api/deployments/jobs?limit=50')).data;
+      $('secondary-panel').classList.remove('hidden');
+      $('secondary-title').textContent = 'Recent local deployment jobs';
+      $('secondary-subtitle').textContent = 'Owner-scoped SQLite history · manual lab execution only';
+      $('secondary-footer').textContent =
+        'No automatic execution. Unknown outcomes require operator reconciliation. Docker writes are disabled by default.';
+      secondaryRows(['Job', 'Draft', 'State', 'Attempts', 'Last update'],
+        labJobs.map(j => plainRow([j.id.slice(0, 12),j.draft_id.slice(0, 12),
+          j.state, j.attempt, new Date(j.updated_at * 1000).toLocaleString()])));
+      showGuide('Deployment execution remains disabled on production hosts. Only isolated lab hosts may explicitly enable the signed local execution pilot; there are no UI execution buttons.');
     } else if (view === 'settings') {
       renderStats(null);
       const p = (await api('/api/settings/security')).data;
