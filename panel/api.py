@@ -94,7 +94,8 @@ class AgentClient:
             raise ValueError("Invalid container ID")
         return await self._request(f"/v1/containers/{container_id}/logs?tail=80")
 
-    async def lab_candidate(self, job_id: str, draft_id: str) -> dict:
+    async def lab_candidate(self, job_id: str, draft_id: str,
+                            image_digest: str) -> dict:
         """GET one strict lab-owned candidate; no raw Engine inspect is returned."""
         if not self.settings.lab_execution_enabled:
             raise HTTPException(403, "Local deployment execution disabled")
@@ -106,7 +107,7 @@ class AgentClient:
             async with httpx.AsyncClient(timeout=6, trust_env=False) as client:
                 response = await client.get(
                     self.settings.agent_url.rstrip("/") + path,
-                    params={"draft_id": draft_id},
+                    params={"draft_id": draft_id, "image_digest": image_digest},
                     headers={"Authorization": f"Bearer {self.settings.agent_token}"},
                 )
                 response.raise_for_status()
@@ -473,7 +474,8 @@ def create_app(settings: Settings | None = None, agent=None):
         if target["state"] not in ("RUNNING", "NEEDS_REVIEW"):
             return {"data": {**target, "observation": "not_applicable",
                              "safe_to_retry": False, "host_lock_released": False}}
-        observation = await agent.lab_candidate(target["job_id"], target["draft_id"])
+        observation = await agent.lab_candidate(target["job_id"], target["draft_id"],
+                                              target["image_digest"])
         return {"data": {**target, **observation,
                          "host_lock_released": False}}
 
@@ -490,7 +492,8 @@ def create_app(settings: Settings | None = None, agent=None):
             raise HTTPException(409, "Job is not unresolved")
         if target["state"] == "RUNNING" and not target["lease_expired"]:
             raise HTTPException(409, "Active job lease cannot be reconciled")
-        observation = await agent.lab_candidate(target["job_id"], target["draft_id"])
+        observation = await agent.lab_candidate(target["job_id"], target["draft_id"],
+                                              target["image_digest"])
         return registry_action(jobs.record_recovery, user["username"], job_id,
                                settings.lab_server_id, observation["observation"])
 
