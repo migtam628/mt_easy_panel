@@ -59,6 +59,7 @@ def create_app(reader=None, token: str | None = None, *,
                      else os.environ.get("AGENT_EXECUTION_KEY", ""))
     if lab_enabled and (lab_ack != "I_ACCEPT_DISPOSABLE_HOST_ONLY"
                         or len(execution_key) < 32
+                        or execution_key == token
                         or os.environ.get("AGENT_DEMO_MODE") == "true"):
         raise RuntimeError("Lab Docker writes require explicit isolated-host acknowledgement, "
                            "a dedicated 32+ character key, and no demo mode")
