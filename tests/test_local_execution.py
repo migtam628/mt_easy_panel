@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from agent.api import create_app, DemoReader
 from agent.local_execution import ActionDenied, LocalDockerWriter
+from agent.docker import DockerError
 from agent.action_replay import ActionReplay
 from panel.manifests import ServiceDraft
 from protocol.local_action import LocalAction, sign_action
@@ -167,3 +168,33 @@ def test_existing_unmanaged_container_cannot_be_adopted():
     with pytest.raises(ActionDenied):
         docker.create_candidate(JID,DID,MANIFEST)
     assert not any(x[1].startswith("/containers/create?") for x in docker.requests)
+
+
+def test_unconfirmed_stop_never_claims_rollback():
+    class UnconfirmedStopFixture(DockerFixture):
+        def _call(self, method, path, body=None, *, missing=False):
+            if method == "POST" and path.endswith("/stop"):
+                self.requests.append((method, path, body))
+                # Docker acknowledges stop, but inspect still says running.
+                return {}
+            return super()._call(method, path, body, missing=missing)
+
+    docker = UnconfirmedStopFixture(unhealthy=True)
+    with pytest.raises(DockerError, match="unconfirmed"):
+        docker.deploy(JID, DID, MANIFEST)
+    assert docker.container["State"]["Running"] is True
+    assert any(path.endswith("/stop") for _, path, _ in docker.requests)
+
+
+def test_missing_candidate_after_stop_never_claims_rollback():
+    class MissingAfterStopFixture(DockerFixture):
+        def _call(self, method, path, body=None, *, missing=False):
+            if method == "POST" and path.endswith("/stop"):
+                self.requests.append((method, path, body))
+                self.container = None
+                return {}
+            return super()._call(method, path, body, missing=missing)
+
+    docker = MissingAfterStopFixture(unhealthy=True)
+    with pytest.raises(DockerError, match="could not be verified"):
+        docker.deploy(JID, DID, MANIFEST)
