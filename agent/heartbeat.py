@@ -12,6 +12,7 @@ import stat
 import sys
 
 from agent.enroll import checked_origin, heartbeat, identity_path, HEX_ID
+from agent.host_probe import submit_report
 
 FIELDS = frozenset(("control_url", "server_id", "key_file"))
 
@@ -45,6 +46,7 @@ def main():
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument("--check", action="store_true")
     modes.add_argument("--once", action="store_true")
+    modes.add_argument("--report", action="store_true")
     parser.add_argument("--config", type=Path, required=True)
     args = parser.parse_args()
     try:
@@ -52,9 +54,13 @@ def main():
         if args.check:
             print("PASS: Private agent identity and Tailscale control URL validated")
             return
-        heartbeat(**dict(origin=config["control_url"],
-                         server_id=config["server_id"], path=config["key_file"]))
-        print("PASS: One signed outbound heartbeat accepted")
+        if args.report:
+            submit_report(config["control_url"], config["server_id"], config["key_file"])
+            print("PASS: One signed, read-only host summary accepted")
+        else:
+            heartbeat(**dict(origin=config["control_url"],
+                             server_id=config["server_id"], path=config["key_file"]))
+            print("PASS: One signed outbound heartbeat accepted")
     except Exception as exc:
         # Output only the exception type, never URLs, keys or HTTP response bodies.
         print("Agent heartbeat failed:", type(exc).__name__, file=sys.stderr)
