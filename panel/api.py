@@ -152,7 +152,7 @@ def create_app(settings: Settings | None = None, agent=None):
     reports = HostReports(settings.db_path)
     fleet = FleetStore(settings.db_path)
     agent = agent or AgentClient(settings)
-    app = FastAPI(title="MT Panel", version="0.3.3-dev", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="MT Panel", version="0.3.4-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
     # In-memory login throttling is a Phase 1 local guard only; production needs
     # persistent, multi-instance throttling plus MFA and reverse-proxy controls.
@@ -190,7 +190,7 @@ def create_app(settings: Settings | None = None, agent=None):
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "service": "mt-panel", "version": "0.3.3-dev"}
+        return {"ok": True, "service": "mt-panel", "version": "0.3.4-dev"}
 
     @app.get("/api/setup")
     def setup():

@@ -1,3 +1,17 @@
+## v0.3.4-dev — Signed host-health history and on-demand fleet warnings
+
+- Added bounded, chronological signed host-report disk history to SQLite,
+  storing up to 288 entries per server with up to 200 queryable samples.
+- Added owner-scoped `GET /api/catalog/servers/{id}/host-history` API.
+- Added authenticated SVG disk-free trend to the server identity dialog.
+- Added on-demand warnings for signed heartbeat/report staleness and disk
+  thresholds (under 20% warning, under 10% critical).
+- Revocation and new-key enrollment delete the old key's full report
+  history and latest snapshot to avoid cross-identity telemetry.
+- Added regression tests for accepted signatures, replay/tampering
+  rejection, retention, owner isolation and warning thresholds.
+- No remote Docker actions, background alerts or live-host configuration changes.
+
 ## v0.3.3-dev — Owner-scoped fleet monitoring and safe re-enrollment
 
 - Added a read-only, owner-scoped `GET /api/fleet/summary` view of up to 500 saved

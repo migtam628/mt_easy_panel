@@ -28,6 +28,7 @@ TABLES = {
     "agent_identities": {"server_id", "public_key", "last_sequence"},
     "enrollment_invites": {"server_id", "token_hash", "expires_at"},
     "host_snapshots": {"server_id", "snapshot_json", "sequence"},
+    "host_report_history": {"server_id", "sequence", "recorded_at", "disk_free_percent"},
 }
 SERVE_ROUTE = re.compile(
     r"^https://[a-z0-9-]+(?:\.[a-z0-9-]+)+\.ts\.net:8443 "
@@ -153,7 +154,7 @@ def check_revision(path: Path = INSTALL) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", required=True)
-    parser.add_argument("--expected-version", default="0.3.2-dev")
+    parser.add_argument("--expected-version", default="0.3.4-dev")
     args = parser.parse_args()
     errors = []
     errors.extend(check_http(args.expected_version))

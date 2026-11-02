@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.3-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.4-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -29,6 +29,7 @@ For VPS browser access, use **Tailscale Serve over private HTTPS on port 8443** 
 - [Ubuntu 26.04 VPS installer, preflight and activation runbook](docs/UBUNTU_26_04_VPS_PILOT.md)
 - [Existing VPS status and staged-only upgrade guide](docs/EXISTING_VPS_UPGRADE.md)
 - [Private remote-agent enrollment and signed heartbeat guide](docs/REMOTE_AGENT_ENROLLMENT.md)
+- [Fleet signed-health history, warnings and operational safety](docs/FLEET_HEALTH_MONITORING.md)
 - [Architecture decision records](docs/ARCHITECTURE_DECISIONS.md)
 - [Next implementation backlog and release gates](docs/PHASE2_BACKLOG.md)
 - [Release notes](RELEASE_NOTES.md)
@@ -175,6 +176,22 @@ Docker containers, run privileged remote agents, or expose new server ports.
 See [agent enrollment](docs/REMOTE_AGENT_ENROLLMENT.md) and the
 [existing VPS upgrade runbook](docs/EXISTING_VPS_UPGRADE.md) for the
 separate deployment and disposable test-host requirements.
+
+## Signed fleet-health history and warnings (v0.3.4-dev)
+
+Each valid Ed25519-signed Linux host report adds one disk-free history
+point to a server-specific SQLite series (288 retained samples per server).
+An owner can inspect recent signed history on the **Servers → Identity /
+health** screen. The fleet listing now calculates on-request warnings for
+missing recent signed heartbeats (3-minute freshness window), stale full
+reports and low disk-free space (below 20% warning; below 10% critical).
+
+Warnings are informative summaries of the **last self-reported signed
+metrics**; they do not represent remote Docker health, do not run as
+background checks and send no notifications. Revoking or replacing an
+identity deletes its prior report history. The control plane never connects
+to enrolled hosts. See [fleet monitoring guide](docs/FLEET_HEALTH_MONITORING.md)
+for thresholds, retention and limitations.
 
 ## Security boundary
 
