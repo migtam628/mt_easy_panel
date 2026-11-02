@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from panel.registry import Registry, RegistryError
 from panel.enrollment import EnrollmentStore
 from panel.host_reports import HostReports
+from panel.fleet import FleetStore
 from protocol.host_snapshot import HostSnapshot
 from panel.manifests import ServiceDraft
 from panel.compose_policy import ComposePolicyError, validate_compose
@@ -149,6 +150,7 @@ def create_app(settings: Settings | None = None, agent=None):
     registry = Registry(settings.db_path)
     enrollment = EnrollmentStore(settings.db_path)
     reports = HostReports(settings.db_path)
+    fleet = FleetStore(settings.db_path)
     agent = agent or AgentClient(settings)
     app = FastAPI(title="MT Panel", version="0.3.2-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
@@ -241,6 +243,11 @@ def create_app(settings: Settings | None = None, agent=None):
         # Every cookie-authenticated mutation requires explicit matching Origin.
         if request.headers.get("Origin") != settings.origin:
             raise HTTPException(403, "Same-origin request required")
+
+    @app.get("/api/fleet/summary")
+    def fleet_summary(user=Depends(current_user)):
+        # Local owner-scoped SQLite reads only. This is NOT remote Docker.
+        return {"data": fleet.summary(user["username"])}
 
     @app.get("/api/catalog/servers")
     def list_servers(user=Depends(current_user)):
