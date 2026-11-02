@@ -1,3 +1,14 @@
+## v0.2.0-dev — Research-driven catalog and deployment draft foundation
+
+- Completed competitor analysis of Easypanel, Coolify, Dokploy, Portainer, CapRover and Dokku (documentation linked).
+- Implemented persisted owner-scoped server identity, project, environment, and service draft records.
+- Added Servers/Projects UI, project workspace, environment creation and image-digest draft editor.
+- Restricted new mutations to authenticated same-origin requests and recorded creation audit events in the same SQLite transaction.
+- Validated strict image digest, container port, conservative CPU/RAM limits and read-only root filesystem; reject unknown dangerous Docker settings.
+- Added registry/manifest regression tests and closed database connections deterministically.
+- **No remote server pairing, deployment execution, docker writes, arbitrary commands, published ports or proxy reconfiguration.**
+- Status: pre-release development build; not yet validated against an owner's live Docker host.
+
 ## v0.1.2 — Authentication audit foundation
 
 - Added SQLite audit event storage with backwards-compatible `CREATE TABLE IF NOT EXISTS` migration.
