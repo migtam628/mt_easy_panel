@@ -36,8 +36,9 @@ echo "The source checkout and any Docker services will remain untouched."
 # Install root-owned application code without copying secrets, local DB or the git checkout.
 install -d -o root -g root -m 0755 /opt/mt-panel
 tar -C "$SRC" -cf - \
-  --exclude='./.git' --exclude='./.venv' --exclude='./.env' \
-  --exclude='./state' --exclude='./__pycache__' --exclude='./.pytest_cache' \
+  --exclude='./.git' --exclude='./.venv' --exclude='./.env*' \
+  --exclude='./state' --exclude='*.db' --exclude='*.db-*' \
+  --exclude='./__pycache__' --exclude='./.pytest_cache' \
   --exclude='*.pyc' --exclude='./.DS_Store' . | tar -C /opt/mt-panel -xf -
 chown -R root:root /opt/mt-panel
 python3 -m venv /opt/mt-panel/.venv
