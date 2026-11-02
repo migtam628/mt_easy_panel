@@ -59,6 +59,22 @@ def stage_check(path: Path) -> str:
     return commit
 
 
+def verify_expected_commit(actual: str, expected: str | None) -> None:
+    """Optional exact-commit pin for preflight and activation.
+
+    An operator can still deliberately activate an older tested candidate
+    without a pin, but an explicit pin makes using the wrong stage impossible.
+    """
+    if expected is None:
+        return
+    if not re.fullmatch(r"[0-9a-f]{40}", expected):
+        raise PromotionError("--expect-commit must be an exact 40-character Git SHA")
+    if actual != expected:
+        raise PromotionError(
+            "Staged revision does not match --expect-commit; no changes made"
+        )
+
+
 def install_check() -> None:
     if INSTALL.is_symlink() or not (INSTALL / ".venv/bin/python").is_file():
         raise PromotionError("Existing /opt/mt-panel installation is missing or not supported")
@@ -272,6 +288,8 @@ def main() -> None:
     group.add_argument("--activate", action="store_true")
     group.add_argument("--rollback", action="store_true")
     parser.add_argument("--stage", type=Path)
+    parser.add_argument("--expect-commit", default=None,
+                        help="Refuse a staged candidate unless its commit matches this exact SHA")
     parser.add_argument("--backup", type=Path)
     parser.add_argument("--confirm", default="")
     args = parser.parse_args()
@@ -284,10 +302,12 @@ def main() -> None:
             if args.stage is None:
                 raise PromotionError("Use --stage with the exact tested staging directory")
             commit = stage_check(args.stage)
+            verify_expected_commit(commit, args.expect_commit)
             install_check()
             verify_services()
             if args.check:
                 print("PASS: Staged release", commit[:12], "is eligible for operator-approved promotion")
+                print("STAGED ONLY: running app remains unchanged until --activate succeeds")
                 print("PASS: Live services, private Tailscale origin and auth boundaries checked")
                 print("No changes made")
             else:
