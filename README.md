@@ -316,6 +316,10 @@ container name and confirms the correct MT Panel job and draft ownership
 labels **and** the exact immutable image digest from the stored job.
 It returns a small allowlist of status values, never Docker inspect JSON.
 
+The Deployments screen also offers **Save dry-run** for a validated
+saved draft, recording an owner-scoped audited DRAFT job in SQLite without
+enabling Docker writes. It never queues or runs a job.
+
 The owner can inspect unresolved job status through
 `GET /api/deployments/jobs/{id}/recovery`; on explicitly enabled disposable
 hosts, `POST /api/deployments/jobs/{id}/reconcile` requires a matching
