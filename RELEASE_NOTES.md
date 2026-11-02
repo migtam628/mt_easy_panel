@@ -1,3 +1,14 @@
+## v0.3.0-dev — Private agent identity and enrollment foundation
+
+- Added owner-only, expiring, one-use 256-bit enrollment invitations stored by SHA-256 hash, with automatic invalidation of replaced invitations.
+- Added Ed25519 public-key proof-of-possession during enrollment and stored per-server identity fingerprints without private keys.
+- Added signed, timestamp-bounded, strictly increasing heartbeat sequence verification, revocation, and re-enrollment after revocation.
+- Added owner-side Servers dashboard identity management and one-time invitation display, with audit events.
+- Added outbound-only agent CLI restricted to verified `https://*.ts.net:8443`; writes a private 0600 identity and supports manual signed heartbeats.
+- Added tests for auth/CSRF, token expiry and replay, cross-owner access, invalid signatures, key file safety and revocation.
+- **No remote Docker inventory or commands, no exposed agent ports, and no automatic production deployment.**
+- Requires further operator validation on a disposable remote agent machine and Tailnet Grants before enabling any remote inventory.
+
 ## MT Panel-only staged activation and rollback tooling
 
 - Added explicit `scripts/promote-vps.py --check|--activate|--rollback` with exact stage/backup paths and mandatory confirmation flags for changes.

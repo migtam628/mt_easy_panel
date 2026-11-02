@@ -1,8 +1,8 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.2.1-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.0-dev`.
 
-MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. The dedicated Ubuntu 26.04 systemd pilot installer and Python 3.14 CI checks are available, but live Docker inventory and installer operation on the user's VPS are not yet verified.
+MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The dedicated Ubuntu 26.04 systemd pilot installer and Python 3.14 CI checks are available, but live Docker inventory and installer operation on the user's VPS are not yet verified.
 
 ## Quick start
 
@@ -28,6 +28,7 @@ For VPS browser access, use **Tailscale Serve over private HTTPS on port 8443** 
 - [Pilot deployment and safety guide](docs/DEPLOYMENT.md)
 - [Ubuntu 26.04 VPS installer, preflight and activation runbook](docs/UBUNTU_26_04_VPS_PILOT.md)
 - [Existing VPS status and staged-only upgrade guide](docs/EXISTING_VPS_UPGRADE.md)
+- [Private remote-agent enrollment and signed heartbeat guide](docs/REMOTE_AGENT_ENROLLMENT.md)
 - [Architecture decision records](docs/ARCHITECTURE_DECISIONS.md)
 - [Next implementation backlog and release gates](docs/PHASE2_BACKLOG.md)
 - [Release notes](RELEASE_NOTES.md)
@@ -64,7 +65,7 @@ mt-panel/
 | Admin login | Yes, offline bootstrap | Multi-user RBAC, MFA |
 | Audit events | Local SQLite login/logout/bootstrap events and owner-only activity page | Configuration/job events, export and retention |
 | Host health | Capacity and counts | Live utilization graphs |
-| Server registry | Saved, unpaired host identities (no remote access) | Trusted pairing, heartbeats, revocation |
+| Server registry | Saved host identities, one-time Ed25519 enrollment, revocation, signed manual heartbeats | Remote Docker inventory and automatic health polling |
 | Projects/environments | Persisted owner-scoped configuration + UI | Service lifecycle + multi-user RBAC |
 | Deployment drafts | Immutable image digest, strict resources and no dangerous fields | Authenticated deployment executor |
 | Container inspection | Name/image/state/ports/logs | Start/stop/restart with authorization |
@@ -73,7 +74,7 @@ mt-panel/
 | Databases | Not yet | PostgreSQL, MongoDB, Redis etc. |
 | Domains & TLS | Not yet | Caddy / Traefik integrations |
 | Backups | Not yet | Restic, schedules and tested restores |
-| Multiple servers | Local agent only | Secure registration/pairing |
+| Multiple servers | Cryptographic enrollment metadata only; local Docker agent remains the only reader | Per-server remote inventory and managed deployments |
 
 ## New pilot workflow (v0.2.1-dev)
 
@@ -110,6 +111,21 @@ Never guess stage or backup directory names. See the
 [existing VPS upgrade and rollback guide](docs/EXISTING_VPS_UPGRADE.md).
 The stage must be a previously verified candidate; the script does not promote
 uncommitted code or restart Docker.
+
+## Private enrollment foundation (v0.3.0-dev)
+
+From **Servers → Identity**, an owner may issue an expiring single-use code,
+view the public identity fingerprint and last signed heartbeat, and revoke the
+identity. An outbound-only CLI in `agent/enroll.py` generates a host Ed25519
+key, presents a signed enrollment proof to the existing private Tailscale HTTPS
+endpoint, and sends signed manual heartbeats. No remote Docker connection or
+application deployment is enabled; a "paired" identity proves a private key,
+**not** remote Docker availability. The invitation is shown only once and never
+stored in plaintext. See the [enrollment operator guide](docs/REMOTE_AGENT_ENROLLMENT.md).
+
+Existing MT Panel installations must be updated using the reviewed staged
+promotion procedure; `git pull` alone does not update the running systemd
+services. The current VPS still runs whichever code was most recently promoted.
 
 ## Security boundary
 
