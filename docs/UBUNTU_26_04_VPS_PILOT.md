@@ -8,8 +8,9 @@ verified on this VPS**. It must not be treated as production-hardened software.
 ## Safety boundaries
 
 - No installation, reconfiguration, restart, or removal of Docker Engine.
-- No replacement of Caddy, nginx, Traefik, or Tailscale.
-- Never take ports 80 or 443. Dashboard and agent use loopback-only 8086 and 8788.
+- No replacement of Caddy, nginx, Traefik, or existing Tailscale routes.
+- **Tailscale Serve only**, private HTTPS on port 8443; never use Funnel, public SSH port forwards, or open a public dashboard listener.
+- Never take existing ports 80, 443 or Tailscale 443. Serve uses a separate HTTPS port 8443; dashboard and agent use loopback-only 8086 and 8788.
 - The dashboard process has NO Docker group. The local host agent has docker
   group access (root-equivalent trust). The application adapter supports
   hardcoded GET endpoints only, but socket compromise is still serious.
@@ -26,6 +27,7 @@ cd ~/mt_easy_panel
 git status --short
 git pull --ff-only origin main
 bash scripts/install-vps.sh --check
+bash scripts/tailscale-access.sh --check
 ```
 
 Read any failures before proceeding. If 8086 or 8788 has an existing listener,
@@ -54,6 +56,25 @@ The script creates:
 It does NOT replace existing root checkout files, source credentials, or any
 application container.
 
+## 3. Prepare the Tailscale-only HTTPS origin
+
+**Before starting the systemd services**, run:
+
+```bash
+cd ~/mt_easy_panel
+bash scripts/tailscale-access.sh --check
+bash scripts/tailscale-access.sh --prepare
+```
+
+The preflight obtains the actual Tailscale MagicDNS hostname from this VPS, checks for a conflict on tailnet HTTPS port 8443, and preserves the existing endpoint on tailnet port 443. The prepare step only changes two values in the **private, installed** `/etc/mt-panel/mt-panel.env` configuration:
+
+```ini
+PANEL_PUBLIC_ORIGIN=https://<actual-node-name>.<actual-tailnet>.ts.net:8443
+PANEL_COOKIE_SECURE=true
+```
+
+It does not display the agent token, configure or reset any Tailscale Serve rules, or start services. If 8443 is already configured, it stops and requests inspection instead of overwriting an unrelated route. Do not replace the real hostname with a guess.
+
 ## 3. Offline admin bootstrap
 
 ```bash
@@ -65,7 +86,7 @@ runuser -u mtpanel -- env PANEL_DB_PATH=/var/lib/mt-panel/panel.db \
 Choose a unique password at least 14 characters long. This account/database
 is separate from any prior pilot installation under `~/mt_easy_panel/state`.
 
-## 4. Explicitly start the isolated new units
+## 5. Explicitly start the isolated new units
 
 Only when you choose to activate them:
 
@@ -88,25 +109,43 @@ journalctl -u mt-panel.service -u mt-panel-agent.service -n 70 --no-pager
 
 **Do not** send API tokens or password hashes with diagnostic output.
 
-## 5. Access from the Mac over Tailscale SSH
+## 6. Publish private HTTPS with Tailscale Serve (never Funnel)
 
-Open a separate macOS Terminal (ensure local port 8086 is unused):
+With MT Panel's health endpoint responding locally, **explicitly configure this new route** on the VPS:
 
 ```bash
-ssh -N -L 8086:127.0.0.1:8086 root@YOUR_VPS_TAILSCALE_IP
+tailscale serve --bg --https=8443 http://127.0.0.1:8086
+tailscale serve status
 ```
 
-Then navigate to `http://127.0.0.1:8086` and sign in.
-The configured exact browser origin is `http://127.0.0.1:8086`.
-`localhost` is not equivalent for the origin check.
+Tailscale Serve automatically provisions HTTPS for your tailnet hostname. It might prompt for one-time tailnet HTTPS authorization if this hasn't been enabled. This command is deliberately kept outside the installer and never changes your existing HTTPS port 443 configuration.
+
+From the Mac, connect to the **same tailnet** and open the HTTPS URL returned by `tailscale serve status`:
+
+```text
+https://<actual-node-name>.<actual-tailnet>.ts.net:8443
+```
+
+Do not use `http://127.0.0.1:8086`, the public VPS IP, or SSH port forwarding for browser access. Verify the browser origin includes `:8443` exactly.
+
+To disable **only** MT Panel's route, use:
+
+```bash
+tailscale serve --https=8443 off
+```
+
+Do not run `tailscale serve reset` or `tailscale funnel`; they could affect unrelated endpoints or privacy.
+
+**Access control:** Use Tailscale Grants/ACLs to allow only your chosen administrator devices to reach port 8443. MT Panel's own login remains required. No public firewall ports should be opened for this dashboard.
 
 ## Disable or back out without touching other applications
 
 ```bash
 systemctl disable --now mt-panel.service mt-panel-agent.service
+tailscale serve --https=8443 off
 ```
 
-This stops only MT Panel. It does not remove any services, Docker workloads,
+This stops only MT Panel and its dedicated tailnet 8443 route. Do not use Serve reset. It does not remove any services, Docker workloads,
 the installation, or the local DB. If cleanup is needed later, take a backup
 of the isolated MT Panel database/config and review the install manifest first;
 do not delete shared Docker directories.
