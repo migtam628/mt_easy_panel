@@ -74,7 +74,8 @@ def create_app(reader=None, token: str | None = None, *,
     @app.get("/health")
     def health():
         # Liveness only; inventory/status still require the agent token.
-        return {"ok": True, "service": "mt-panel-agent", "version": "0.1.1"}
+        return {"ok": True, "service": "mt-panel-agent", "version": "0.1.1",
+                "lab_execution_enabled": lab_enabled}
 
     def authorize(authorization: str | None = Header(default=None)):
         expected = "Bearer " + token
