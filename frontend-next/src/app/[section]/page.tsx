@@ -1,4 +1,5 @@
-import { Dashboard, SECTIONS, type Section } from "@/components/dashboard";
+import { Dashboard } from "@/components/dashboard";
+import { SECTIONS, type Section } from "@/lib/sections";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
