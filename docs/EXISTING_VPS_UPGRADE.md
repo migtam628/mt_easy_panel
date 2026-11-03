@@ -440,3 +440,26 @@ Do not enable lab Docker writes. If preview startup fails, disable only
 `PANEL_NEXT_PREVIEW_ENABLED` and restart only `mt-panel.service`;
 the legacy dashboard is unaffected. Tailscale and other applications
 remain outside the upgrade.
+
+## v0.3.14-dev — Original-looking Next preview test deployment
+
+CI for the exact commit must pass Next static export, Python 3.12/3.14,
+disposable Docker, and parity source-contract tests before staging.
+
+From the existing VPS checkout, run `bash scripts/vps-test-sync.sh --stage`.
+Record the printed `STAGE_PATH` and full `STAGE_REVISION`. Download
+the `mt-panel-next-static` artifact from the **matching** green
+GitHub Actions run to a new empty `/tmp` directory. Run
+`scripts/install-next-preview-stage.py --check` with that stage,
+bundle directory and exact revision; if PASS, repeat `--install`
+with explicit confirmation. Check the exact stage using
+`scripts/promote-vps.py --check`, and only after PASS separately
+activate with `--confirm ACTIVATE_MT_PANEL`.
+
+After activation, verify v0.3.14-dev and confirm the agent and panel
+still report `lab_execution_enabled=false`. The existing
+`PANEL_NEXT_PREVIEW_ENABLED=true` setting should serve the new
+export at `/next-preview/`, and `/` remains the old dashboard.
+Do not attach an older preview artifact to a newer stage, alter
+ports, or enable Docker writes. Rollback backup from the promotion
+must be retained.

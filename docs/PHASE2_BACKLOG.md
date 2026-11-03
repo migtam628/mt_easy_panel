@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.13-dev
+# Phase 2 Build Backlog — MT Panel v0.3.14-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -151,3 +151,16 @@ model, then Git source builds and Compose.
 **Still pending:** browser-based end-to-end sign-in and session lifecycle,
 static bundle dependency lockfile, complete UI parity, independent host
 attestation, service revision/rollback.
+
+## v0.3.14-dev — Original UI source parity in Next.js
+
+- All eleven original routes, tables, metrics, and React-based dialogs.
+- Existing owner metadata workflows, identity and audit endpoints
+  reused without enabling production Docker writes.
+- Original CSS copied verbatim as Next's UI baseline, plus minimal
+  accessible React overlay additions.
+- Source contract tests detect missing navigation/API/action coverage.
+
+**Still open:** real-browser screenshot and flow parity, locked
+dependency tree, cross-browser CSS validation, authenticated E2E and
+safe opt-in legacy-root cutover/rollback. Next remains preview only.

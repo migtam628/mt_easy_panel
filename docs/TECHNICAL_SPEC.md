@@ -1,6 +1,6 @@
 # MT Panel — Technical Product Specification
 
-**Version:** 0.3.13-dev (strict CSP-compatible Next.js hydration)  
+**Version:** 0.3.14-dev (Next.js parity with the original 11-page UI)  
 **Project status:** Current VPS read-only pilot; the isolated write path is now exercised on ephemeral CI Docker Engine but has not been authorized on the production VPS or a dedicated Tailscale lab VM.  
 **Ownership:** Independently written implementation; not an Easypanel fork, copy of its code, or compatible proprietary API.  
 **Architecture:** One unprivileged control plane, one constrained Docker inventory agent per host.  
@@ -321,3 +321,16 @@ JS/CSS continue using `script-src 'self'`. Next's React hydration
 functions without unsafe inline scripting, a second runtime, or moving
 session/authentication authority out of FastAPI. Preview default-off,
 production Docker write-disabled constraints remain unchanged.
+
+## 20. v0.3.14-dev — Next.js source parity
+
+React now implements every original navigation screen, including the
+previously missing Images, Networks and Volumes views. Owner dialogs
+for signed identity, project metadata/environment/drafts, Compose
+validation, logs and deployment review follow the original FastAPI API
+contracts. The unmodified original CSS is the baseline for the
+preview's appearance and responsive layout. All existing backend
+permissions continue to apply; no additional Docker mutations are
+exposed. Source-contract tests enforce the mappings, but real-browser
+screen/behavior verification remains necessary before declaring a
+pixel-perfect replacement or switching the private `/` route.

@@ -251,7 +251,7 @@ export function Dashboard({section}:{section:Section}) {
           <span className={"status-dot"+(connected?" ok":"")}/>
           <span>Local host agent</span><span>{connected?"Connected":error?"Unavailable":"Checking"}</span>
         </div>
-        <div className="sidebar-footer">MT Tech Services · NEXT.JS PREVIEW</div>
+        <div className="sidebar-footer">MT Tech Services · v0.3.14-dev</div>
       </div>
     </aside>
     <main className="workspace">

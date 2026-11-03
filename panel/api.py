@@ -254,7 +254,7 @@ def create_app(settings: Settings | None = None, agent=None):
     jobs = LocalJobs(settings.db_path)
     reviews = JobReviewEvidence(settings.db_path)
     agent = agent or AgentClient(settings)
-    app = FastAPI(title="MT Panel", version="0.3.13-dev", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="MT Panel", version="0.3.14-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
     next_preview_csp = None
     if settings.next_preview_enabled:
@@ -311,7 +311,7 @@ def create_app(settings: Settings | None = None, agent=None):
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "service": "mt-panel", "version": "0.3.13-dev",
+        return {"ok": True, "service": "mt-panel", "version": "0.3.14-dev",
                 "lab_execution_enabled": settings.lab_execution_enabled}
 
     @app.get("/api/setup")
@@ -556,7 +556,7 @@ def create_app(settings: Settings | None = None, agent=None):
         # Fixed allowlisted facts only; never expose AGENT_TOKEN, DB paths,
         # private agent keys, environment contents or cookie values.
         return {"data": {
-            "owner": user["username"], "app_version": "0.3.13-dev",
+            "owner": user["username"], "app_version": "0.3.14-dev",
             "public_origin": settings.origin,
             "secure_cookies": settings.cookie_secure,
             "session_cookie_http_only": True,

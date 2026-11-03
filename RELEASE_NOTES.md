@@ -1,3 +1,26 @@
+## v0.3.14-dev — Match original MT Panel in Next.js
+
+- Replaced the partial Next preview dashboard with a React implementation
+  of the original eleven screens in the exact original navigation order.
+- Reused the entire legacy CSS baseline for matching layout, colors,
+  typography, pills, metrics, table density, login and modal surfaces.
+- Restored missing Images, Networks and Volumes inventory pages, including
+  read-only API sources and formatters.
+- Restored Containers' bounded log modal; original Servers identity,
+  host reports, signed history, invitation and revocation flows.
+- Restored Projects management: create projects, environments and pinned
+  service drafts, plus Compose safety validation (never execute).
+- Restored Deployment policy review, evidence packets and metadata-only
+  audited dry-run recording; Monitoring diagnostics and Security settings.
+- Added explicit source-contract tests comparing original nav/CSS/API and
+  modal actions to the Next.js implementation.
+- Original `/` stays the installed fallback; opt-in Next preview remains
+  `/next-preview/`. No production Docker write gate or auth boundary
+  was relaxed.
+- **Still required before replacing `/`:** authenticated browser
+  screenshot parity, responsive/a11y checks, deterministic dependency
+  lockfile and owner review on live server data.
+
 ## v0.3.13-dev — Next.js static hydration CSP compatibility fix
 
 - Fixes the Next preview remaining at `Checking your session…` when

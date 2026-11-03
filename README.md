@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.13-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.14-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -479,6 +479,39 @@ Use the [existing VPS upgrade instructions](docs/EXISTING_VPS_UPGRADE.md)
 to stage and promote this patch with its matching CI static artifact.
 The v0.3.12 preview remains **read-only and experimental**, and the old
 dashboard stays at `/`.
+
+## v0.3.14-dev — Restore original frontend feature parity
+
+The Next.js migration now follows the **original MT Panel** visual and
+navigation structure. The original `web/styles.css` is copied verbatim
+as the base for `frontend-next/src/app/globals.css`, preserving the
+navy/teal theme, 248px sidebar, workspace, metrics, original login card,
+status pills, tables, spacing and modal styling. Only React accessibility
+and overlay rules are layered on top.
+
+All **11 legacy pages** now exist as actual Next.js static routes in the
+original order: Overview, Servers, Projects, Containers, Images, Networks,
+Volumes, Activity, Monitoring, Deployments, Settings. The previous
+migration preview lacked Images, Networks and Volumes.
+
+The React dashboard now includes bound log viewing; server identity,
+signed heartbeats/host report/history, enrollment invitation and
+revocation; project/environment and immutable-digest service draft
+forms; strict Compose validation preview; deployment policy and
+evidence review modals; metadata-only audited dry-run jobs; detailed
+monitoring and read-only security settings.
+
+**No** Docker write buttons, new host permissions, Next.js server runtime,
+extra network listener or changed backend session policy are added.
+All existing owner/session/origin protections still apply to the same
+FastAPI endpoints. The original dashboard stays available at `/`
+while Next remains explicitly opt-in at `/next-preview/`.
+
+See [the full 11-page parity matrix](docs/NEXTJS_PARITY_MATRIX.md).
+This is **source-code and feature parity**, not yet a claim of complete
+pixel-by-pixel browser equivalence. Authenticated browser screenshot
+testing, accessibility verification, and a frozen npm lock remain before
+an operator-approved root UI replacement.
 
 ## Security boundary
 

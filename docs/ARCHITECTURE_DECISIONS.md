@@ -242,3 +242,27 @@ must be installed with the exact pinned commit, and Next static pages
 may produce different script hashes; recompute at service startup.
 Browser functional parity and cross-browser CSP enforcement remain
 separate release gates.
+
+## ADR-013 — Source-mapped original UI parity before any root route switch
+
+**Status:** v0.3.14-dev; legacy `/` remains authoritative.
+
+**Decision:** The original `web/index.html`, `web/app.js` and
+`web/styles.css` are the UI reference, not an unrelated redesign.
+Next.js reuses the exact legacy stylesheet as its visual baseline
+and restores the original eleven pages, metric layouts, tables and
+core dialogs. Existing FastAPI session, login, CSRF origin controls,
+policy review, audit and local Docker GET-only agent remain unchanged.
+Invites/revocations remain explicit owner-controlled identity metadata,
+and dry-run jobs are metadata only.
+
+Source parity is protected with tests for nav order, original CSS,
+API sources, action labels and absence of Docker socket/agent secrets
+in React components. Code parity cannot prove visual pixel equivalence
+or browser runtime correctness: complete screenshot and accessibility
+verification, production data comparisons and a frozen frontend lockfile
+remain mandatory before any root route switch.
+
+**Consequence:** Owners can test the replacement in parallel under
+`/next-preview/`, while retaining a known-good fallback at `/`.
+No wider production capabilities are inferred from the UI migration.

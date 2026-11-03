@@ -109,3 +109,18 @@ Use the new revision-matched CI static bundle. This is a FastAPI header
 fix **and** an updated static build; promote them together. Existing
 v0.3.12 installation remains a safe fallback at `/` until that stage
 is explicitly activated.
+
+## v0.3.14: Original MT Panel UI parity milestone
+
+The first Next.js prototype was intentionally incomplete. This pass
+recreates the original eleven navigation screens in the same order,
+reuses `web/styles.css` verbatim, and restores original forms,
+inventory panels, metrics, container logs, signed agent identity and
+report modals, Compose validation, readiness checks, dry-run history,
+evidence packets and security disclosure.
+
+See [the original-vs-Next parity checklist](../docs/NEXTJS_PARITY_MATRIX.md).
+Source compatibility is tested in CI, but screenshot/e2e equivalence
+requires a separate private browser test before any root cutover.
+The original dashboard is retained at `/` for fallback. Static Next
+remains at `/next-preview/`; no extra web server is required.
