@@ -124,6 +124,11 @@ def install_bundle(source: Path, output: Path, files: list[str]) -> None:
         for rel, digest in expected["files"].items():
             if hashlib.sha256((temp / rel).read_bytes()).hexdigest() != digest:
                 raise PreviewBundleError("Copied asset digest mismatch")
+        # mkdtemp creates mode 0700. Keep the temporary tree private
+        # throughout verification, then allow the unprivileged mtpanel
+        # service to traverse the published static assets after promotion.
+        # Files remain root-owned 0644; subdirectories are non-writable.
+        temp.chmod(0o755)
         os.replace(temp, output)
     finally:
         if temp.exists():
