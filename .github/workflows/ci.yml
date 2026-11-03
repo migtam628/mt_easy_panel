@@ -73,6 +73,24 @@ jobs:
                           "files": files}, sort_keys=True, separators=(",", ":")) + "\n"
           )
           PY
+      - name: Verify Next hydration bootstrap under strict hash-only CSP
+        run: |
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          import sys
+          sys.path.insert(0, '..')
+          from panel.next_preview_csp import PreviewCsp
+          policy = PreviewCsp(Path('out'))
+          root_scripts = policy.hashes_by_path.get('/next-preview/', ())
+          if not root_scripts:
+              raise SystemExit('Next preview has no inline bootstrap scripts; check export')
+          assert policy.script_policy('/api/health') is None
+          assert policy.script_policy('/next-preview/_next/static/main.js') is None
+          script_policy = policy.script_policy('/next-preview/')
+          assert script_policy and "'unsafe-inline'" not in script_policy
+          print(f'PASS: {len(root_scripts)} exact Next bootstrap script hashes on preview only')
+          PY
       - name: Validate generated bundle with the VPS staging importer
         run: |
           python3 - <<'PY'
