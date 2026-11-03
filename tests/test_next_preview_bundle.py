@@ -47,6 +47,13 @@ def test_exact_sha_bundle_can_install_only_to_selected_staging_path(tmp_path):
     m.install_bundle(source, output, files)
     assert (output / "monitoring" / "index.html").read_text() == "<h1>Monitoring</h1>"
     assert (output / "mt-panel-build-manifest.json").is_file()
+    # The unprivileged mtpanel systemd User must be able to traverse the
+    # directory after its root-owned stage is promoted. mkdtemp is 0700
+    # unless explicitly adjusted before the atomic install.
+    import stat
+    assert stat.S_IMODE(output.stat().st_mode) == 0o755
+    assert stat.S_IMODE((output / "index.html").stat().st_mode) == 0o644
+    assert stat.S_IMODE((output / "monitoring").stat().st_mode) & 0o005 == 0o005
     assert not list(output.parent.glob(".next-preview.*"))
     with pytest.raises(m.PreviewBundleError, match="already exists"):
         m.install_bundle(source, output, files)
