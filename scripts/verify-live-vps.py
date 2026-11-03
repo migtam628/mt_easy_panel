@@ -33,7 +33,7 @@ TABLES = {
     "local_deployment_events": {"id", "job_id", "state", "code"},
 }
 SERVE_ROUTE = re.compile(
-    r"^https://[a-z0-9-]+(?:\.[a-z0-9-]+)+\.ts\.net:8443 "
+    r"^https://[a-z0-9-]+(?:\.[a-z0-9-]+)+\.ts\.net:(?P<port>[1-9][0-9]{0,4}) "
     r"\(tailnet only\)\s*\n\|-- / proxy http://127\.0\.0\.1:8086(?:\s|$)",
     re.MULTILINE,
 )
@@ -140,7 +140,10 @@ def check_database(path: Path = DB_PATH) -> list[str]:
     return errors
 
 
-def check_tailscale() -> list[str]:
+def check_tailscale(https_port: int = 8443) -> list[str]:
+    """Require an exact private Serve route for the configured HTTPS port."""
+    if not 1 <= https_port <= 65535:
+        return ["Invalid private HTTPS Serve port"]
     try:
         proc = subprocess.run(
             ["tailscale", "serve", "status"],
@@ -148,9 +151,12 @@ def check_tailscale() -> list[str]:
         )
     except (OSError, subprocess.TimeoutExpired):
         return ["Unable to read Tailscale Serve status"]
-    if proc.returncode or not SERVE_ROUTE.search(proc.stdout):
-        return ["Expected private HTTPS 8443 -> local 8086 Tailscale Serve route not found"]
-    print("PASS: Tailscale Serve private HTTPS 8443 -> 127.0.0.1:8086")
+    if proc.returncode or not any(
+        int(match.group("port")) == https_port
+        for match in SERVE_ROUTE.finditer(proc.stdout)
+    ):
+        return [f"Expected private HTTPS {https_port} -> local 8086 Tailscale Serve route not found"]
+    print(f"PASS: Tailscale Serve private HTTPS {https_port} -> 127.0.0.1:8086")
     return []
 
 
@@ -173,6 +179,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", required=True)
     parser.add_argument("--expected-version", default="0.3.14-dev")
+    parser.add_argument("--tailscale-port", type=int, default=8443,
+                        help="Existing private Tailscale Serve HTTPS port (e.g. 9443)")
     args = parser.parse_args()
 
     # This command is deliberately POST-PROMOTION only. A common operator
@@ -196,7 +204,7 @@ def main() -> None:
     errors = []
     errors.extend(check_http(args.expected_version))
     errors.extend(check_database())
-    errors.extend(check_tailscale())
+    errors.extend(check_tailscale(args.tailscale_port))
     errors.extend(check_revision())
     if errors:
         for problem in errors:
