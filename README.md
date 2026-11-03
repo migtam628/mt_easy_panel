@@ -436,6 +436,12 @@ FastAPI serves only prebuilt static assets from `frontend-next/out/` at
 `/next-preview/`; the root dashboard and all APIs remain unchanged. If the
 preview bundle is missing or unsafe, enabled startup fails closed.
 
+Static exports are published as root-owned but publicly readable files
+(0644) in directories traversable by the unprivileged MT Panel process
+(0755). Earlier staged v0.3.12 artifacts may require a one-time
+`chmod 0755 /opt/mt-panel/frontend-next/out` after promotion to fix
+an unexpected startup failure when the preview flag is enabled.
+
 GitHub CI builds the Next static assets on Node 22, typechecks and
 packages a manifest listing the **exact Git SHA and SHA-256 hashes**.
 `scripts/install-next-preview-stage.py` can attach a downloaded,
