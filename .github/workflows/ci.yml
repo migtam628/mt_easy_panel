@@ -70,7 +70,7 @@ jobs:
               raise SystemExit("incomplete Next export")
           (output / "mt-panel-build-manifest.json").write_text(
               json.dumps({"format": 1, "commit": os.environ["GITHUB_SHA"],
-                          "files": files}, sort_keys=True, separators=(",", ":")) + "\\n"
+                          "files": files}, sort_keys=True, separators=(",", ":")) + "\n"
           )
           PY
       - name: Validate generated bundle with the VPS staging importer
