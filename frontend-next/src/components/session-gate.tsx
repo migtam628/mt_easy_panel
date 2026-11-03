@@ -8,73 +8,90 @@ type SessionContextValue = { user: User; logout: () => Promise<void> };
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function useSession(): SessionContextValue {
-  const context = useContext(SessionContext);
-  if (!context) throw new Error("Session is not ready");
-  return context;
+  const session = useContext(SessionContext);
+  if (!session) throw new Error("Session not ready");
+  return session;
 }
 
-export function SessionGate({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
+export function SessionGate({ children }: {children: ReactNode}) {
+  const [user,setUser] = useState<User|null>(null);
+  const [loading,setLoading] = useState(true);
+  const [busy,setBusy] = useState(false);
+  const [notice,setNotice] = useState("");
 
-  useEffect(() => {
-    let active = true;
+  useEffect(()=>{
+    let active=true;
     api<User>("/api/auth/me")
-      .then((identity) => { if (active) setUser(identity); })
-      .catch((error: unknown) => {
-        if (active && !(error instanceof ApiError && error.status === 401)) {
-          setNotice("Cannot reach the MT Panel API. Check the current FastAPI service.");
+      .then(identity=>{if(active)setUser(identity);})
+      .catch(async (error: unknown)=>{
+        if (!active) return;
+        if (!(error instanceof ApiError && error.status===401)) {
+          setNotice("Cannot reach MT Panel API. Check the FastAPI service.");
+          return;
         }
+        try {
+          const setup=await api<{needs_setup:boolean}>("/api/setup");
+          if (active && setup.needs_setup) {
+            setNotice("Initial setup required: run python -m panel.cli create-admin on the server.");
+          }
+        } catch { /* Show the existing login form offline. */ }
       })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, []);
+      .finally(()=>{if(active)setLoading(false);});
+    return ()=>{active=false;};
+  },[]);
 
-  async function login(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy) return;
-    const form = new FormData(event.currentTarget);
-    const username = String(form.get("username") || "");
-    const password = String(form.get("password") || "");
-    setBusy(true);
-    setNotice("");
+  async function login(event:FormEvent<HTMLFormElement>) {
+    event.preventDefault();if(busy)return;
+    const form=event.currentTarget;
+    const values=new FormData(form);
+    setBusy(true);setNotice("");
     try {
-      const identity = await api<User>("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ username, password }),
-      });
+      const identity=await api<User>("/api/auth/login",{method:"POST",body:JSON.stringify({
+        username:String(values.get("username")||""),
+        password:String(values.get("password")||""),
+      })});
+      form.reset();
       setUser(identity);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Sign-in failed");
-    } finally {
-      setBusy(false);
-    }
+    }catch(error) {
+      setNotice(error instanceof Error?error.message:"Sign-in failed");
+    }finally{setBusy(false);}
   }
 
   async function logout() {
-    try { await api("/api/auth/logout", { method: "POST" }); }
-    finally { setUser(null); }
+    try{await api("/api/auth/logout",{method:"POST"});}
+    finally{setUser(null);}
   }
 
-  if (loading) return <main className="session-screen"><p>Checking your session…</p></main>;
-  if (!user) return (
-    <main className="session-screen">
-      <div className="login-panel">
-        <div className="brand"><span className="brand-mark">M</span><span>MT <strong>Panel</strong></span></div>
-        <div className="eyebrow">NEXT.JS MIGRATION PREVIEW</div>
-        <h1>Secure workspace</h1>
-        <p className="muted">Sign in using your existing MT Panel account. No separate Next.js authentication or session store is created.</p>
-        <form onSubmit={login} className="login-form">
-          <label>Username<input name="username" autoComplete="username" required maxLength={64} /></label>
-          <label>Password<input name="password" type="password" autoComplete="current-password" required /></label>
-          {notice && <p className="error" role="alert">{notice}</p>}
-          <button className="primary" disabled={busy} type="submit">{busy ? "Signing in…" : "Sign in"}</button>
-        </form>
-        <p className="footnote">Private, same-origin API · HttpOnly session cookie · Docker writes remain disabled</p>
-      </div>
-    </main>
-  );
-  return <SessionContext.Provider value={{ user, logout }}>{children}</SessionContext.Provider>;
+  if(loading) return <main className="login-wrap" aria-live="polite">
+    <div className="login-card"><div className="logo large">
+      <span className="logo-mark">M</span><span>MT <strong>Panel</strong></span></div>
+      <div className="eyebrow">SELF-HOSTED INFRASTRUCTURE</div>
+      <h1>Checking your session…</h1>
+      <p className="muted">Verifying your existing MT Panel session.</p>
+    </div>
+  </main>;
+
+  if(!user) return <main className="login-wrap">
+    <div className="login-card">
+      <div className="logo large"><span className="logo-mark">M</span>
+        <span>MT <strong>Panel</strong></span></div>
+      <div className="eyebrow">SELF-HOSTED INFRASTRUCTURE</div>
+      <h1>Welcome back.</h1>
+      <p className="muted">Sign in to view your servers and container inventory.</p>
+      <form onSubmit={login}>
+        <label htmlFor="mt-next-username">Username</label>
+        <input id="mt-next-username" name="username" autoComplete="username"
+          required defaultValue="admin" maxLength={64}/>
+        <label htmlFor="mt-next-password">Password</label>
+        <input id="mt-next-password" name="password" autoComplete="current-password"
+          type="password" required maxLength={1024}/>
+        {notice && <p className="error" role="alert">{notice}</p>}
+        <button type="submit" className="button primary wide" disabled={busy}>
+          {busy?"Signing in…":"Sign in"} <span>↗</span>
+        </button>
+      </form>
+      <div className="login-foot">Next.js Preview · Private server operations</div>
+    </div>
+  </main>;
+  return <SessionContext.Provider value={{user,logout}}>{children}</SessionContext.Provider>;
 }
