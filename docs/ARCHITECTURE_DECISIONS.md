@@ -140,3 +140,36 @@ CI runner, not production host/kernel policy, independently isolated
 remote enrollment, service revision traffic cutover, volume recovery,
 manual release of unresolved locks, or end-to-end rollback of a
 previous live image. The live VPS remains explicitly write-disabled.
+
+## ADR-010 — Immutable review references are not host-release authority
+
+**Status:** v0.3.11-dev, default read-only pilot; no host clearance.
+
+**Context:** The v0.3.9 fail-closed design rightly blocks uncertain Docker
+jobs as NEEDS_REVIEW indefinitely, but operators need inspectable evidence
+packets and an auditable review history before any future manual release
+protocol can be considered.
+
+**Decision:** Create a separate SQLite `local_job_review_evidence`
+table. Owner-only review packet GET reads only existing ledger and audit
+transitions. It hashes a deterministic canonical representation of the
+immutable manifest SHA-256, exact job/draft/server identity, job state,
+lease, attempts, update timestamp and recorded transitions. It returns
+no secrets or raw Docker inspect. Review POST requires owner session,
+strict Origin, explicit RECORD_REVIEW_EVIDENCE header, a current packet
+fingerprint, allowlisted reason code, and an operator-supplied 64-hex
+SHA-256 evidence reference. The transaction checks state and freshness,
+is idempotent for exact duplicates, and atomically audits new references.
+
+**Trust boundary:** The evidence reference is user-supplied metadata,
+**not** a signature or independent Docker host attestation. The endpoint
+cannot invoke the agent, mutate jobs, clear or alter host leases, approve
+remote execution or change traffic. Neither a single reference nor
+multiple reviews establish safe-to-retry. Future unlock decisions require
+independent attestation/lease fencing and separate implementation/test
+approval on a disposable host.
+
+**Consequences:** The operator can inspect a stable, attributable case
+record while unresolved host work remains blocked. SQLite/backup data
+grows modestly per operator-submitted review; bounded packet events and
+small fixed input schemas limit exposure.

@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.10-dev
+# Phase 2 Build Backlog — MT Panel v0.3.11-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -104,3 +104,16 @@ service revision handoff with actual previous-digest rollback.
 cutover/previous-digest rollback, operator proof-backed host unlock,
 real disposable Tailscale VM/systemd confinement, remote Docker writes
 and general Git/Compose/DB deployments.
+
+## v0.3.11-dev — Review-packet and audit foundation
+
+- Owner-scoped immutable job snapshot fingerprint plus bounded history,
+  read-only in Deployments.
+- Explicitly approved, append-only operator evidence references with
+  stale-state/owner checks and atomic SQLite auditing.
+- Uncertain jobs remain NEEDS_REVIEW; no host lock is released, no Docker
+  command is retried or issued, and no remote trust authority is added.
+
+**Next:** Independent agent-signed condition/identity attestation on a
+separate disposable VM, an operator approval protocol for lock clearance,
+and durable revision/cutover design. Existing VPS stays write-disabled.

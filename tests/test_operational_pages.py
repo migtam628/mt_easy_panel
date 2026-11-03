@@ -81,7 +81,7 @@ def test_pages_are_owner_only_and_do_not_expose_tokens(tmp_path):
     assert deployment["docker_writes_enabled"] is False
 
     posture = c.get(urls[2]).json()["data"]
-    assert posture["app_version"] == "0.3.10-dev"
+    assert posture["app_version"] == "0.3.11-dev"
     assert posture["owner"] == "owner"
     assert posture["container_writes"] is False
     assert posture["deployment_execution"] is False
@@ -177,3 +177,16 @@ def test_page_navigation_is_active_and_read_only():
     assert "saveDraftJob(d, dryRun)" in js
     assert "execute: false" in js
     assert "No container will be created or changed" in js
+
+
+def test_evidence_packet_ui_never_exposes_clear_or_execute_button():
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    html = (root / "web/index.html").read_text()
+    js = (root / "web/app.js").read_text()
+    assert 'id="job-review-dialog"' in html
+    assert "showJobReviewPacket(j)" in js
+    assert "/review-packet" in js
+    assert "Host lock released: NO" in js
+    assert "Independent host attestation: NOT VERIFIED" in js
+    assert "/review-evidence" not in js  # Backend API is operator-only for now.

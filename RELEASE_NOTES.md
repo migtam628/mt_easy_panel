@@ -1,3 +1,21 @@
+## v0.3.11-dev — Fail-closed recovery evidence packet and owner review log
+
+- Added deterministic SHA-256 job review packets from owner-scoped SQLite
+  job state, manifest hash, lease, and full bounded transition history.
+- Added append-only review references for unresolved NEEDS_REVIEW jobs.
+  Explicit approval, exact origin/session, packet-freshness checking,
+  strict reason codes and SHA-256 reference validation are mandatory.
+- Duplicate submissions do not duplicate audits; state changes invalidate
+  stale fingerprints. Owner isolation prevents cross-tenant access.
+- Added a read-only Deployments UI evidence packet dialog showing history
+  and untrusted operator references without revealing secrets.
+- Added unit/API regression tests for missing approvals, bad origins,
+  malformed or stale packets, duplicate evidence, owner isolation and
+  preservation of the blocked host lock.
+- **No manual host release, automatic retry, workload cutover or new
+  Docker write capability is part of this release.** Existing production
+  services, Tailscale configuration and ports 80/443 remain untouched.
+
 ## v0.3.10-dev — First successful real Docker Engine lab integration
 
 - Added a strictly gated, **disposable GitHub-hosted runner** integration

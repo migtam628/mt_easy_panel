@@ -303,3 +303,26 @@ Both agent and panel must have `lab_execution_enabled=false`.
 changes, or ports 80/443 takeover on this production VPS to test this
 candidate. A successful CI run alone does not authorize production
 Docker execution.
+
+## v0.3.11 — Update the read-only review UI safely
+
+Source update and separate staging (no live service restart):
+
+```bash
+cd ~/mt_easy_panel
+bash scripts/vps-test-sync.sh --check
+bash scripts/vps-test-sync.sh --stage
+```
+
+Only after successful GitHub CI and the stage's printed SHA-pinned
+promotion preflight, the operator may separately activate that exact
+stage. After activation, not before:
+
+```bash
+python3 scripts/verify-live-vps.py --check --expected-version 0.3.11-dev
+python3 scripts/vps-status.py --check
+```
+
+Confirm both health endpoints say `lab_execution_enabled=false`.
+The evidence packet and review metadata do **not** authorize host
+clearance. Never enable lab writes on the existing production VPS.

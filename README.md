@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.10-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.11-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -382,6 +382,38 @@ dashboard on the installed VPS. Activation is still separately approved
 and must keep `lab_execution_enabled=false` in both panel and agent.
 See [lab integration ADR](docs/ARCHITECTURE_DECISIONS.md) and
 [Phase A test guide](docs/PHASE_A_LOCAL_EXECUTION.md).
+
+## v0.3.11-dev — Auditable operator recovery evidence (no host unlock)
+
+The **Deployments → Recent local jobs → Evidence packet** screen now
+provides a read-only owner-scoped snapshot of each job's immutable
+manifest hash, state, attempt count and transition events. Its SHA-256
+packet fingerprint binds any subsequent review to precisely that recorded
+state/history; a new reconciliation event invalidates an old fingerprint.
+
+For jobs in `NEEDS_REVIEW` only, an operator can optionally record an
+append-only **review reference** using the authenticated API. It requires
+a same-origin request and an explicit
+`X-MTPanel-Approval: RECORD_REVIEW_EVIDENCE` header, a fresh
+packet fingerprint, one of four fixed reason codes and an external
+64-hex-digit SHA-256 reference. Repeating exactly the same submission
+is idempotent; a new one produces an SQLite audit event. No free-form
+secret-bearing notes are stored.
+
+Endpoints:
+- `GET /api/deployments/jobs/{job_id}/review-packet`
+- `POST /api/deployments/jobs/{job_id}/review-evidence`
+
+**A reference is not trusted host attestation.** It does not prove a
+candidate stopped, release a `NEEDS_REVIEW` host lock, authorize a
+retry, touch Docker, modify an enrolled agent, or deploy anything.
+That separate, proof-backed manual unlock workflow is still blocked
+pending stronger independent host evidence and a disposable VM test.
+
+The installed production VPS remains read-only. To test this dashboard
+release, stage with `bash scripts/vps-test-sync.sh --stage`,
+then use explicit SHA-pinned promotion and the separate post-promotion
+verifier. Never set local Docker write-enable flags on production.
 
 ## Security boundary
 

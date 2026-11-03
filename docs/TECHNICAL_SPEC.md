@@ -1,10 +1,10 @@
 # MT Panel — Technical Product Specification
 
-**Version:** 0.3.10-dev (Phase A disposable Docker integration validation)  
+**Version:** 0.3.11-dev (Phase A operator evidence packet and audit foundation)  
 **Project status:** Current VPS read-only pilot; the isolated write path is now exercised on ephemeral CI Docker Engine but has not been authorized on the production VPS or a dedicated Tailscale lab VM.  
 **Ownership:** Independently written implementation; not an Easypanel fork, copy of its code, or compatible proprietary API.  
 **Architecture:** One unprivileged control plane, one constrained Docker inventory agent per host.  
-**Deployment safety:** Initial release is read-only. No destructive or write-capable Docker routes exist.
+**Deployment safety:** Installed production defaults to read-only; experimental lab-only constrained agent write routes require independent disposable-host opt-in and remain disabled on production.
 
 ## 1. Product definition
 
@@ -285,3 +285,16 @@ retain their short timeout, while only STOP receives a bounded longer
 timeout. The real integration covers candidate isolation **not**
 production service cutover, remote host agent rollout or previous
 digest rollback. The installed VPS remains read-only by default.
+
+## 17. v0.3.11-dev — Recovery case evidence
+
+A read-only owner-scoped job packet is hashed over job identity, pinned
+manifest hash, state/lease and a bounded state-transition history.
+An owner may store a fixed-reason, operator-supplied SHA-256 evidence
+reference only in NEEDS_REVIEW state, after exact Origin, session and
+explicit review approval. SQLite audit records are atomic, duplicate
+requests idempotent, and stale packet fingerprints rejected. Evidence is
+**not** independent host attestation; host locking and deployment
+execution policy cannot be changed by review submission. The control
+plane remains unprivileged and the existing agent/Ed25519 protocol
+is unchanged.

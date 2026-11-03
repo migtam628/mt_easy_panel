@@ -179,3 +179,39 @@ throwaway Tailscale VM with restrictive systemd services; audit complete
 host ownership/fencing on real host failures; design service revisions
 and true previous-image cutover/rollback. The current VPS stays
 read-only.
+
+## v0.3.11 — Recovery evidence packet, not recovery authorization
+
+A logged-in owner can retrieve a deterministic evidence packet at
+`GET /api/deployments/jobs/{job_id}/review-packet`. It includes state,
+manifest hash, bounded state events, SHA-256 fingerprint, and optional
+existing operator references, but no agent tokens, lease tokens, Docker
+inspect or credentials. The Deployments UI renders the packet read-only.
+
+To record one operator-controlled reference for an unresolved job only:
+
+```http
+POST /api/deployments/jobs/{job_id}/review-evidence
+Origin: <configured MT Panel origin>
+X-MTPanel-Approval: RECORD_REVIEW_EVIDENCE
+Content-Type: application/json
+
+{
+  "packet_digest": "<current packet SHA-256 from GET>",
+  "reason_code": "manual_investigation",
+  "evidence_ref": "<operator-supplied external evidence SHA-256>"
+}
+```
+
+This request additionally requires the authenticated owner's existing
+session. Other fixed reasons: `candidate_inspected`,
+`agent_unreachable`, `ownership_mismatch`. The external reference
+is **untrusted operator-supplied metadata**, not host attestation.
+Stale job snapshots, foreign owners, invalid identifiers or missing
+approval fail closed. Exact duplicates return the prior record without
+repeating audit events; new records are append-only and auditable.
+
+**Safety:** All job states and host fences remain unchanged. This
+release does NOT implement operator unlock, automated replay, image
+replacement or host writes. The agent enrollment/Ed25519 identity
+boundary and production write-disable gate are unchanged.

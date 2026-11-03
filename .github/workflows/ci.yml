@@ -30,7 +30,7 @@ jobs:
       - run: python -m pytest tests/test_verify_live_vps.py tests/test_release_status.py -q
       - run: python -m compileall -q agent panel
       - run: python -m pytest tests/test_enrollment.py -q
-      - run: python -m pytest tests/test_agent_heartbeat.py tests/test_host_reports.py tests/test_fleet.py tests/test_operational_pages.py tests/test_diagnostics.py tests/test_local_execution.py tests/test_lab_jobs.py tests/test_recovery.py -q
+      - run: python -m pytest tests/test_agent_heartbeat.py tests/test_host_reports.py tests/test_fleet.py tests/test_operational_pages.py tests/test_diagnostics.py tests/test_local_execution.py tests/test_lab_jobs.py tests/test_recovery.py tests/test_review_evidence.py -q
 
   ephemeral-docker-lab:
     name: Disposable Docker Engine lab (non-production)
