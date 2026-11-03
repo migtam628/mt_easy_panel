@@ -4,12 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, asObject, asRows, formatBytes, formatTime, show, type ApiRow, type Envelope } from "@/lib/api";
 import { useSession } from "@/components/session-gate";
-
-export const SECTIONS = [
-  "overview", "containers", "monitoring", "servers",
-  "projects", "deployments", "activity", "settings",
-] as const;
-export type Section = (typeof SECTIONS)[number];
+import { SECTIONS, type Section } from "@/lib/sections";
 
 const META: Record<Section, { title: string; subtitle: string; icon: string }> = {
   overview: { title: "Overview", subtitle: "Local host inventory at a glance", icon: "◫" },
