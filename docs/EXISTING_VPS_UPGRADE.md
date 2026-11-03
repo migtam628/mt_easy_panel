@@ -463,3 +463,22 @@ export at `/next-preview/`, and `/` remains the old dashboard.
 Do not attach an older preview artifact to a newer stage, alter
 ports, or enable Docker writes. Rollback backup from the promotion
 must be retained.
+
+## Existing Tailscale HTTPS port 9443 (shared VPS)
+
+If the existing private MT Panel origin already uses Tailscale Serve HTTPS
+`9443` because `8443` is occupied by another application, **retain that
+route and origin**. Do not run `tailscale-access.sh --prepare` or create a new
+Serve route for this upgrade. `tailscale serve status` must show the MT Panel
+path as `(tailnet only)` with a local `127.0.0.1:8086` proxy target.
+
+The release verifier defaults to historical port 8443. For this existing
+9443 configuration, after promotion run:
+
+```bash
+python3 scripts/verify-live-vps.py --check --expected-version 0.3.14-dev --tailscale-port 9443
+```
+
+The alternate-port flag only changes a read-only verification expectation;
+it never configures Serve, Funnel, Caddy, Docker, or a listening socket.
+Fail closed if the route is public, missing or points to a different backend.
