@@ -107,6 +107,45 @@ async function saveDraftJob(draft, button) {
     button.disabled = false;
   }
 }
+async function showJobReviewPacket(job) {
+  $('job-review-title').textContent = 'Job ' + job.id.slice(0, 12) + ' · Review packet';
+  $('job-review-summary').replaceChildren();
+  $('job-review-events').replaceChildren();
+  $('job-review-references').replaceChildren();
+  $('job-review-dialog').showModal();
+  try {
+    const data = (await api('/api/deployments/jobs/' +
+      encodeURIComponent(job.id) + '/review-packet')).data;
+    const summary = $('job-review-summary');
+    [
+      'State: ' + data.state + (data.review_eligible ? ' · Blocked pending review' : ''),
+      'Packet SHA-256: ' + data.packet_digest,
+      'Immutable manifest SHA-256: ' + data.manifest_sha256,
+      'Execution attempts: ' + data.attempt,
+      'Host lock released: NO · Safe to retry: NO',
+      'Independent host attestation: NOT VERIFIED',
+    ].forEach(line => summary.append(el('div', line, 'config-item')));
+    if (!data.events.length) {
+      $('job-review-events').append(el('div', 'No recorded transitions.', 'config-item'));
+    } else {
+      data.events.slice(-100).forEach(event =>
+        $('job-review-events').append(el('div',
+          new Date(event.created_at * 1000).toLocaleString() + ' · ' +
+          event.state + ' · ' + event.code, 'config-item')));
+    }
+    if (!data.evidence.length) {
+      $('job-review-references').append(el('div',
+        'No operator references. No action is authorized.', 'config-item'));
+    } else {
+      data.evidence.forEach(entry =>
+        $('job-review-references').append(el('div',
+          entry.reason_code + ' · Reference SHA-256 ' + entry.evidence_ref +
+          ' · Untrusted operator-supplied reference', 'config-item')));
+    }
+  } catch (error) {
+    $('job-review-summary').append(el('div', error.message, 'error'));
+  }
+}
 async function showDraftReview(draft) {
   $('draft-review-title').textContent = draft.name + ' / Static security review';
   $('draft-review-details').replaceChildren();
@@ -318,9 +357,17 @@ async function refresh() {
       $('secondary-subtitle').textContent = 'Owner-scoped SQLite history · manual lab execution only';
       $('secondary-footer').textContent =
         'No automatic execution. Unknown outcomes require operator reconciliation. Docker writes are disabled by default.';
-      secondaryRows(['Job', 'Draft', 'State', 'Attempts', 'Last update'],
-        labJobs.map(j => plainRow([j.id.slice(0, 12),j.draft_id.slice(0, 12),
-          j.state, j.attempt, new Date(j.updated_at * 1000).toLocaleString()])));
+      secondaryRows(['Job', 'Draft', 'State', 'Attempts', 'Last update', 'Review'],
+        labJobs.map(j => {
+          const tr = plainRow([j.id.slice(0, 12), j.draft_id.slice(0, 12),
+            j.state, j.attempt, new Date(j.updated_at * 1000).toLocaleString()]);
+          const td = document.createElement('td');
+          const view = el('button', 'Evidence packet', 'link-button');
+          view.type = 'button';
+          view.addEventListener('click', () => showJobReviewPacket(j));
+          td.append(view); tr.append(td);
+          return tr;
+        }));
       showGuide('Deployment execution remains disabled on production hosts. Only isolated lab hosts may explicitly enable the signed local execution pilot; there are no UI execution buttons.');
     } else if (view === 'settings') {
       renderStats(null);
@@ -652,6 +699,7 @@ async function init() {
   $('refresh').addEventListener('click', refresh);
   $('close-log').addEventListener('click', () => $('log-dialog').close());
   $('close-draft-review').addEventListener('click', () => $('draft-review-dialog').close());
+  $('close-job-review').addEventListener('click', () => $('job-review-dialog').close());
   $('logout').addEventListener('click', async () => {
     try { await api('/api/auth/logout', {method:'POST'}); } finally { showLogin(); }
   });
