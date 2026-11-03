@@ -73,6 +73,18 @@ jobs:
                           "files": files}, sort_keys=True, separators=(",", ":")) + "\\n"
           )
           PY
+      - name: Validate generated bundle with the VPS staging importer
+        run: |
+          python3 - <<'PY'
+          import importlib.util, os
+          from pathlib import Path
+          path = Path("../scripts/install-next-preview-stage.py")
+          spec = importlib.util.spec_from_file_location("preview_stage", path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          entries = module.validate_bundle(Path("out"), os.environ["GITHUB_SHA"])
+          print(f"Validated {len(entries)} immutable static files")
+          PY
       - name: Verify exported static routes and no new server runtime
         run: |
           test -f out/index.html
