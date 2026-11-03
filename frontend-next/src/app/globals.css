@@ -50,8 +50,9 @@ tr:hover td { background:#fcfdfd; }
 .disclaimer { margin-top:28px; }
 .error-panel { color:#9c3030; background:#fff1f0; border:1px solid #efcccc; border-radius:8px; padding:13px; margin-bottom:18px; font-size:13px; }
 .text-action { color:#08776c; border:1px solid #badfd7; border-radius:7px; background:#f5fcfa; padding:8px 11px; white-space:nowrap; }
-.session-screen { min-height:100vh; display:grid; place-items:center; padding:20px; background:linear-gradient(145deg,#0c1a2a,#173e49); }
-.login-panel { width:min(100%,440px); background:#fff; padding:36px; border-radius:16px; box-shadow:0 24px 90px #0005; }
+.session-screen { min-height:100vh; display:grid; place-items:center; padding:20px; color:#e1f4f3; background:linear-gradient(145deg,#0c1a2a,#173e49); }
+.session-screen > p { font-size:14px; font-weight:500; letter-spacing:.2px; }
+.login-panel { width:min(100%,440px); background:#fff; color:var(--ink); padding:36px; border-radius:16px; box-shadow:0 24px 90px #0005; }
 .login-panel .brand { padding:0; margin-bottom:26px; color:#193347; }
 .login-panel h1 { margin:15px 0; font-size:28px; }
 .login-form { display:grid; gap:18px; margin-top:25px; }
