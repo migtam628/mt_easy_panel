@@ -21,6 +21,7 @@ from panel.fleet import FleetStore
 from panel.deployment_readiness import DeploymentReadiness
 from panel.local_jobs import LocalJobs
 from panel.review_evidence import JobReviewEvidence
+from panel.next_preview_csp import PreviewCsp
 from protocol.local_action import LocalAction, sign_action
 from panel.diagnostics import summarize_containers, host_capacity
 from protocol.host_snapshot import HostSnapshot
@@ -255,6 +256,7 @@ def create_app(settings: Settings | None = None, agent=None):
     agent = agent or AgentClient(settings)
     app = FastAPI(title="MT Panel", version="0.3.12-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
+    next_preview_csp = None
     if settings.next_preview_enabled:
         # An explicit operator gate; static files only. No Node runtime,
         # reverse proxy, second backend, or modified root route.
@@ -263,6 +265,9 @@ def create_app(settings: Settings | None = None, agent=None):
                 or not (preview / "index.html").is_file()
                 or (preview / "index.html").is_symlink()):
             raise RuntimeError("Static Next.js preview export missing or unsafe")
+        # Hash only the specific trusted inline Next bootstrap scripts.
+        # Do not loosen the default CSP for /, /api or any other path.
+        next_preview_csp = PreviewCsp(preview)
         app.mount("/next-preview", StaticFiles(directory=str(preview), html=True),
                   name="next-preview")
     # In-memory login throttling is a Phase 1 local guard only; production needs
@@ -276,8 +281,13 @@ def create_app(settings: Settings | None = None, agent=None):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Cache-Control"] = "no-store"
+        script_policy = (
+            next_preview_csp.script_policy(request.scope.get("path", ""))
+            if next_preview_csp is not None else None
+        )
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+            "default-src 'self'; " + (script_policy or "script-src 'self'") + "; "
+            "style-src 'self'; img-src 'self' data:; "
             "connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
         )
         return response
