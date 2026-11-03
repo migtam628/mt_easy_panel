@@ -259,7 +259,9 @@ def create_app(settings: Settings | None = None, agent=None):
         # An explicit operator gate; static files only. No Node runtime,
         # reverse proxy, second backend, or modified root route.
         preview = WEB_DIR.parent / "frontend-next" / "out"
-        if not preview.is_dir() or preview.is_symlink():
+        if (not preview.is_dir() or preview.is_symlink()
+                or not (preview / "index.html").is_file()
+                or (preview / "index.html").is_symlink()):
             raise RuntimeError("Static Next.js preview export missing or unsafe")
         app.mount("/next-preview", StaticFiles(directory=str(preview), html=True),
                   name="next-preview")
