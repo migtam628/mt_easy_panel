@@ -32,6 +32,37 @@ jobs:
       - run: python -m pytest tests/test_enrollment.py -q
       - run: python -m pytest tests/test_agent_heartbeat.py tests/test_host_reports.py tests/test_fleet.py tests/test_operational_pages.py tests/test_diagnostics.py tests/test_local_execution.py tests/test_lab_jobs.py tests/test_recovery.py tests/test_review_evidence.py -q
 
+  next-static-preview:
+    name: Next.js static preview build (no backend deployment)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend-next
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Preview-only phase: lockfile generation and pinning is a release gate.
+      # npm never runs on the installed MT Panel VPS.
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: npm run typecheck
+      - name: Verify exported static routes and no new server runtime
+        run: |
+          test -f out/index.html
+          test -f out/monitoring/index.html
+          test -f out/deployments/index.html
+          test -f out/settings/index.html
+          test ! -d src/app/api
+          test ! -f src/proxy.ts
+          test ! -f src/middleware.ts
+
   ephemeral-docker-lab:
     name: Disposable Docker Engine lab (non-production)
     # Only run on GitHub-hosted ephemeral runners, never on a self-hosted
