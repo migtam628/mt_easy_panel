@@ -159,6 +159,19 @@
       <p class="muted small">Execution remains disabled, even when static checks pass.</p>
     </div>
   </dialog>
+  <dialog id="job-review-dialog" aria-labelledby="job-review-title">
+    <div class="dialog-head"><div><div class="eyebrow">REVIEW EVIDENCE / READ ONLY</div>
+      <h2 id="job-review-title">Job evidence packet</h2></div>
+      <button type="button" id="close-job-review" class="button ghost">Close ×</button></div>
+    <div class="project-config">
+      <p class="muted small">Evidence is not host attestation. This screen does not resolve a job, release a lock, or start Docker.</p>
+      <div id="job-review-summary" class="config-list">No job selected.</div>
+      <h3>Recorded transition history</h3>
+      <div id="job-review-events" class="config-list">No events.</div>
+      <h3>Operator references</h3>
+      <div id="job-review-references" class="config-list">No review evidence recorded.</div>
+    </div>
+  </dialog>
   <dialog id="log-dialog" aria-labelledby="log-title">
     <div class="dialog-head"><div><div class="eyebrow">CONTAINER LOGS · LAST 80 LINES</div><h2 id="log-title">Logs</h2></div><button class="button ghost" id="close-log">Close ×</button></div>
     <pre id="log-output">Loading logs…</pre>
