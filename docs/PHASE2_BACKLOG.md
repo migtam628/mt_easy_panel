@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.11-dev
+# Phase 2 Build Backlog — MT Panel v0.3.12-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -117,3 +117,24 @@ and general Git/Compose/DB deployments.
 **Next:** Independent agent-signed condition/identity attestation on a
 separate disposable VM, an operator approval protocol for lock clearance,
 and durable revision/cutover design. Existing VPS stays write-disabled.
+
+## v0.3.12-dev — Next.js UI migration, parallel preview
+
+- Next.js static App Router + TypeScript frontend under `frontend-next`;
+  FastAPI/SQLite session authority unchanged, no Node production daemon.
+- Same-origin read-only PaaS UI with audited DRY-RUN draft job creation.
+- Opt-in `/next-preview/` served by FastAPI only from a prebuilt
+  nonsymlinked static export; legacy `/` retained.
+- CI static build + exact-revision hash manifest and safe optional
+  stage importer, without npm on the production host.
+- Unit tests for preview disablement, route preservation, root/API
+  authentication and bundle SHA/symlink/traversal checks.
+
+**Remaining for UI migration:** lockfile + integrity/audit,
+browser-auth/CSRF end-to-end tests, parity for project management,
+service details/logs, signed agent identity, responsive accessibility,
+and a careful opt-in root route switch with rollback.
+
+**Deployment engine roadmap unchanged:** disposable VM host-condition
+attestation, evidence-backed manual host clearance, service revision
+model, then Git source builds and Compose.

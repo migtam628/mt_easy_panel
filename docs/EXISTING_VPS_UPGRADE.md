@@ -326,3 +326,51 @@ python3 scripts/vps-status.py --check
 Confirm both health endpoints say `lab_execution_enabled=false`.
 The evidence packet and review metadata do **not** authorize host
 clearance. Never enable lab writes on the existing production VPS.
+
+## v0.3.12 — Optional Next.js static preview, private original origin
+
+A normal `vps-test-sync.sh --stage` now stages the Next frontend **source**
+but deliberately does not run npm, build assets or enable the preview on
+the installed VPS. Your existing `/` dashboard remains unchanged.
+
+To preview the new UI safely:
+
+1. Confirm the **exact commit** passed the Python 3.12/3.14, disposable
+   Docker and **Next static preview** GitHub Actions checks.
+2. Run `bash scripts/vps-test-sync.sh --stage` and copy the printed
+   `STAGE_PATH` and `STAGE_REVISION`. If stage cap is reached, stop;
+   review existing stages before deleting anything.
+3. Download that exact CI run's `mt-panel-next-static` artifact into
+   an empty local directory on the VPS. The GitHub CLI may be used, e.g.
+   `gh run download <RUN_ID> -R migtam628/mt_easy_panel -n mt-panel-next-static -D /tmp/mt-panel-next-preview`.
+   This is an **operator step**, not a background update.
+4. Run the add-only validation, substituting your stage and SHA:
+
+```bash
+python3 scripts/install-next-preview-stage.py --check \
+  --stage /opt/mt-panel-stage.EXAMPLE123 \
+  --bundle-dir /tmp/mt-panel-next-preview \
+  --expect-commit YOUR_EXACT_40_CHAR_SHA
+```
+
+5. Only after PASS, separately run `--install` with the **same** stage,
+   bundle and SHA, adding `--confirm INSTALL_MT_PANEL_NEXT_PREVIEW`.
+   The importer checks ownership, source revision, per-file hashes and
+   symlinks, and copies static assets **only into the staged directory**.
+6. Follow the existing printed `promote-vps.py --check` then separately
+   approved activation commands. Verify
+   `python3 scripts/verify-live-vps.py --check --expected-version 0.3.12-dev`
+   and `scripts/vps-status.py --check` after activation.
+7. **Only if you want to enable the parallel preview:** back up your
+   root-owned `/etc/mt-panel/mt-panel.env`, then edit it using
+   `sudoedit` and add `PANEL_NEXT_PREVIEW_ENABLED=true`. Restart **only**
+   `mt-panel.service` with `sudo systemctl restart mt-panel.service`
+   and verify the original `/api/health`, `/` and new
+   `/next-preview/` URLs through the same private Tailscale HTTPS
+   origin on port 8443. To disable, remove the setting and restart only
+   that service. Keep the exact rollback backup from promotion.
+
+**Do not** set `PANEL_LOCAL_EXECUTION_ENABLED` or
+`AGENT_LOCAL_EXECUTION_ENABLED` on this shared VPS.
+The preview flag is unrelated to Docker writes. Do not change Caddy,
+Tailscale Serve, ports 80/443, or other applications.

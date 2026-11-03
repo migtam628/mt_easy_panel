@@ -43,3 +43,35 @@ user-specific data at build time; they fetch it only after authenticating.
    replacing any existing dashboard route.
 
 All production Docker write gates stay disabled.
+
+## Preview deployment on the existing private VPS (explicit only)
+
+The preview is optional and stays **disabled by default**. The new
+`PANEL_NEXT_PREVIEW_ENABLED` option requires prebuilt assets under
+`frontend-next/out/` in the installed release; no runtime Node
+process or new public port is created.
+
+For each green GitHub Actions run, download its `mt-panel-next-static`
+artifact (built from that exact Git commit) with the GitHub web UI or:
+
+```bash
+gh run download <RUN_ID> -R migtam628/mt_easy_panel \
+  -n mt-panel-next-static -D /tmp/mt-panel-next-preview
+```
+
+After safely staging the **same** exact commit on the VPS, run the
+add-only `scripts/install-next-preview-stage.py --check`, then the
+explicitly confirmed `--install` to attach assets only to the stage.
+See [step-by-step runbook](../docs/EXISTING_VPS_UPGRADE.md).
+Only after pinned promotion and read-only verification should the
+operator add `PANEL_NEXT_PREVIEW_ENABLED=true` and restart only the
+MT Panel service. The same private Tailscale origin then serves:
+
+- Existing dashboard: `/` (unchanged)
+- Next.js preview: `/next-preview/` (opt-in)
+- Existing API: `/api/` (same session/CSRF protections)
+
+The CI SHA-256 file list detects bundle corruption but does not itself
+prove publisher authenticity. Download only the corresponding artifact
+from the reviewed GitHub Actions run. A frozen npm lockfile and complete
+UI parity are still required before replacing the legacy dashboard.

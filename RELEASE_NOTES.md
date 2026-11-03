@@ -1,3 +1,24 @@
+## v0.3.12-dev — Next.js static frontend migration foundation
+
+- Added Next.js 16 App Router + TypeScript static frontend prototype,
+  with working same-origin FastAPI cookie session integration.
+- Implemented overview, container inventory, monitoring, servers,
+  projects, deployment drafts with confirmation-only DRY-RUN metadata,
+  audit activity and security settings.
+- Added a separate Next.js CI build/typecheck and static route checks;
+  no production Node daemon or Next route handlers introduced.
+- Added default-off `PANEL_NEXT_PREVIEW_ENABLED` for static assets on
+  the **existing private FastAPI origin**, under `/next-preview/`.
+  The legacy `/` route and all authenticated APIs remain unchanged.
+- Added CI static artifact, exact Git SHA + per-file hash manifest and
+  a separately confirmed, add-only stage importer. No npm/root package
+  installation on the production VPS.
+- Added disabled-by-default preview authorization/route tests and
+  bundle integrity/symlink/traversal regression tests.
+- **Not complete:** Full previous UI parity, source lockfile and
+  static artifact signing, browser e2e tests, and the production PaaS
+  deployment/revision engine. No production Docker writes enabled.
+
 ## v0.3.11-dev — Fail-closed recovery evidence packet and owner review log
 
 - Added deterministic SHA-256 job review packets from owner-scoped SQLite

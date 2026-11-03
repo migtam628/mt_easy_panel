@@ -1,6 +1,6 @@
 # MT Panel — Technical Product Specification
 
-**Version:** 0.3.11-dev (Phase A operator evidence packet and audit foundation)  
+**Version:** 0.3.12-dev (parallel Next.js static frontend migration)  
 **Project status:** Current VPS read-only pilot; the isolated write path is now exercised on ephemeral CI Docker Engine but has not been authorized on the production VPS or a dedicated Tailscale lab VM.  
 **Ownership:** Independently written implementation; not an Easypanel fork, copy of its code, or compatible proprietary API.  
 **Architecture:** One unprivileged control plane, one constrained Docker inventory agent per host.  
@@ -298,3 +298,16 @@ requests idempotent, and stale packet fingerprints rejected. Evidence is
 execution policy cannot be changed by review submission. The control
 plane remains unprivileged and the existing agent/Ed25519 protocol
 is unchanged.
+
+## 18. v0.3.12-dev — Frontend security isolation
+
+MT Panel now has a parallel, statically exported Next.js 16 App Router/
+TypeScript UI for the eventual web migration. It has no Node server
+on production, additional API authority, browser-readable secret, or
+new Docker permission. Existing FastAPI/SQLite keeps authentication,
+signed agent identity, audit, deployment validation and default-off
+execution gates. The prototype is packaged by CI with a commit-bound
+static file hash manifest; an operator may explicitly attach it only
+to a matching unactivated release. Its use at the private
+`/next-preview/` route requires independent opt-in.
+Root `/` remains legacy until feature parity and security review.

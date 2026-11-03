@@ -173,3 +173,44 @@ approval on a disposable host.
 record while unresolved host work remains blocked. SQLite/backup data
 grows modestly per operator-submitted review; bounded packet events and
 small fixed input schemas limit exposure.
+
+## ADR-011 — Migrate the UI to Next.js static export, not the backend
+
+**Status:** Experimental v0.3.12-dev; legacy FastAPI UI remains default.
+
+**Context:** A growing self-hosted PaaS needs maintainable routed
+components, TypeScript and more consistent design. However, running
+Next.js as a second production server or replacing FastAPI's established
+cookie/session and origin authority introduces avoidable complexity and
+trust boundaries.
+
+**Decision:** Create a separate Next.js 16 App Router + TypeScript
+frontend under `frontend-next/`, statically exported to the fixed
+`/next-preview` base path. All runtime data are fetched by client
+components from **same-origin** `/api/` after authenticating through
+the existing FastAPI HttpOnly, Secure (HTTPS) and SameSite=Strict cookie.
+No Next.js API routes, middleware/proxy, server actions, new auth
+provider, socket access, secrets or server-side dynamic rendering are
+introduced. FastAPI and SQLite remain the sole business logic and
+audit systems; Ed25519 enrollment and the local allowlist-only agent
+remain untouched.
+
+Static assets are served by the existing FastAPI process only if
+`PANEL_NEXT_PREVIEW_ENABLED=true` **and** a nonsymlinked prebuilt
+export exists. This changes neither the existing `/` route nor
+systemd, Caddy, Tailscale, ports 80/443, or container privileges.
+A missing bundle fails closed during enabled startup. CI builds with
+Node 22 in a disposable runner and uploads a SHA-labelled,
+per-file SHA-256 manifest; an explicit importer validates stage SHA
+and content hashes before copying assets into an *unactivated* stage.
+The artifact hashes detect corruption and stale bundles but are **not**
+independent cryptographic attestation of the artifact publisher.
+Operators must download from the trusted GitHub Actions run.
+
+**Tradeoffs/gates:** Static export omits server-only Next features;
+users must authenticate and load private data client-side. We avoid a
+new Node production service while preserving reliable failover. The
+Next UI is an incomplete parallel preview, not a replacement. Before
+switching the root route: ensure full feature parity, frozen and
+audited dependency lock, authenticated browser/CSRF testing, trusted
+artifact provenance, accessibility and controlled fallback/rollback.

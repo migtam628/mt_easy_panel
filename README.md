@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.11-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.12-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -414,6 +414,41 @@ The installed production VPS remains read-only. To test this dashboard
 release, stage with `bash scripts/vps-test-sync.sh --stage`,
 then use explicit SHA-pinned promotion and the separate post-promotion
 verifier. Never set local Docker write-enable flags on production.
+
+## v0.3.12-dev — Parallel Next.js frontend migration
+
+A **separate Next.js 16 App Router + TypeScript** frontend now lives in
+[frontend-next/](frontend-next/). It statically exports an operator-friendly
+dashboard with existing-session login/logout, overview, containers, monitoring,
+servers, projects, deployment draft/readiness and audited dry-run jobs,
+activity, and security settings. It is not yet a full replacement for
+the existing dashboard; the legacy `/` route remains the default.
+
+**Architecture:** FastAPI stays the only API, session and authorization
+authority. The Next build uses `output: "export"` with the fixed
+`/next-preview` base path: no Node production runtime, Next.js API routes,
+server actions, proxy to Docker, second login system or extra open ports.
+The browser sends HttpOnly same-origin cookies to the existing `/api/`.
+Lab Docker execution and agent/Ed25519 trust are completely unchanged.
+
+`PANEL_NEXT_PREVIEW_ENABLED` defaults to **false**. When explicitly enabled,
+FastAPI serves only prebuilt static assets from `frontend-next/out/` at
+`/next-preview/`; the root dashboard and all APIs remain unchanged. If the
+preview bundle is missing or unsafe, enabled startup fails closed.
+
+GitHub CI builds the Next static assets on Node 22, typechecks and
+packages a manifest listing the **exact Git SHA and SHA-256 hashes**.
+`scripts/install-next-preview-stage.py` can attach a downloaded,
+validated bundle only to a matching, still-unactivated release under
+`/opt/mt-panel-stage.*`, after explicit operator confirmation. This script
+does **not** run npm as root, modify the live panel, or touch systemd,
+Docker, Tailscale or reverse proxies.
+
+See [Next migration guide](frontend-next/README.md),
+[ADR-011](docs/ARCHITECTURE_DECISIONS.md) and
+[existing VPS upgrade runbook](docs/EXISTING_VPS_UPGRADE.md).
+The frontend dependency lockfile and full legacy UI parity remain
+**production release gates**.
 
 ## Security boundary
 
