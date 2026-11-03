@@ -1,3 +1,18 @@
+### v0.3.12-dev follow-up — Unprivileged Next preview file permissions
+
+- Fixed static CI preview import: the temporary validated export is kept
+  private during copying but published with directory mode `0755`, while
+  static asset files stay root-owned and non-writable (`0644`). This allows
+  the existing `mtpanel` systemd user to traverse `frontend-next/out`
+  after stage promotion. Previously the root-created temporary directory
+  retained `0700`, potentially preventing FastAPI startup when
+  `PANEL_NEXT_PREVIEW_ENABLED=true` was selected.
+- Added regression tests for output and nested-directory permissions.
+- Existing installations can be repaired without rollback using
+  `sudo chmod 0755 /opt/mt-panel/frontend-next/out` followed by restarting
+  only `mt-panel.service` after verifying the static files exist.
+- No new Docker privileges, service ports, proxy changes or Node runtime.
+
 ## v0.3.12-dev — Next.js static frontend migration foundation
 
 - Added Next.js 16 App Router + TypeScript static frontend prototype,
