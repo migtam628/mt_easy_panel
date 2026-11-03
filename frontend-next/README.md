@@ -75,3 +75,22 @@ The CI SHA-256 file list detects bundle corruption but does not itself
 prove publisher authenticity. Download only the corresponding artifact
 from the reviewed GitHub Actions run. A frozen npm lockfile and complete
 UI parity are still required before replacing the legacy dashboard.
+
+## Preview permission fix for prior v0.3.12 stage builds
+
+A root-run version of the stage importer accidentally retained
+`mkdtemp` mode `0700` on the final `out` directory. This can break
+service startup after enabling `PANEL_NEXT_PREVIEW_ENABLED` because
+systemd runs the FastAPI panel as `mtpanel`. The updated importer makes
+verified static assets traversable/readable by the unprivileged service,
+without granting write access. On an already activated release, if the
+static export is present and the service journal shows preview permission
+or export errors, correct only the final directory mode:
+
+```bash
+sudo chmod 0755 /opt/mt-panel/frontend-next/out
+sudo systemctl restart mt-panel.service
+```
+
+If that fails, turn the preview flag back off; do not weaken service
+sandboxing or permit Docker access to fix a static-asset issue.
