@@ -20,6 +20,7 @@ from panel.host_reports import HostReports
 from panel.fleet import FleetStore
 from panel.deployment_readiness import DeploymentReadiness
 from panel.local_jobs import LocalJobs
+from panel.review_evidence import JobReviewEvidence
 from protocol.local_action import LocalAction, sign_action
 from panel.diagnostics import summarize_containers, host_capacity
 from protocol.host_snapshot import HostSnapshot
@@ -226,6 +227,13 @@ class LocalJobRequest(BaseModel):
     confirmation: str = ""
 
 
+class ReviewEvidenceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    packet_digest: str = Field(min_length=64, max_length=64)
+    reason_code: str = Field(min_length=1, max_length=48)
+    evidence_ref: str = Field(min_length=64, max_length=64)
+
+
 class LoginData(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
@@ -241,6 +249,7 @@ def create_app(settings: Settings | None = None, agent=None):
     fleet = FleetStore(settings.db_path)
     deployments = DeploymentReadiness(settings.db_path)
     jobs = LocalJobs(settings.db_path)
+    reviews = JobReviewEvidence(settings.db_path)
     agent = agent or AgentClient(settings)
     app = FastAPI(title="MT Panel", version="0.3.10-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
@@ -413,6 +422,23 @@ def create_app(settings: Settings | None = None, agent=None):
     @app.get("/api/deployments/jobs/{job_id}")
     def local_job_details(job_id: str, user=Depends(current_user)):
         return registry_action(jobs.details, user["username"], job_id)
+
+    @app.get("/api/deployments/jobs/{job_id}/review-packet")
+    def get_job_review_packet(job_id: str, user=Depends(current_user)):
+        # Data from the SQLite ledger only; no Docker or agent requests.
+        return registry_action(reviews.packet, user["username"], job_id)
+
+    @app.post("/api/deployments/jobs/{job_id}/review-evidence", status_code=201)
+    def submit_job_review_evidence(job_id: str, data: ReviewEvidenceRequest,
+                                   request: Request, user=Depends(current_user)):
+        require_write_origin(request)
+        if request.headers.get("X-MTPanel-Approval") != "RECORD_REVIEW_EVIDENCE":
+            raise HTTPException(403, "Explicit evidence-recording approval required")
+        # A note never attests to host safety, clears a lock or schedules work.
+        return registry_action(
+            reviews.record, user["username"], job_id,
+            data.packet_digest, data.reason_code, data.evidence_ref,
+        )
 
     @app.post("/api/deployments/drafts/{draft_id}/jobs", status_code=201)
     def create_local_job(draft_id: str, data: LocalJobRequest, request: Request,
