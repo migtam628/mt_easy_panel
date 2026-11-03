@@ -53,6 +53,26 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm run typecheck
+      - name: Create revision-bound static bundle manifest
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          output = Path("out")
+          files = {}
+          for path in sorted(output.rglob("*")):
+              if path.is_symlink():
+                  raise SystemExit("symlinks not allowed in static export")
+              if path.is_file():
+                  rel = path.relative_to(output).as_posix()
+                  files[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
+          if "index.html" not in files or "monitoring/index.html" not in files:
+              raise SystemExit("incomplete Next export")
+          (output / "mt-panel-build-manifest.json").write_text(
+              json.dumps({"format": 1, "commit": os.environ["GITHUB_SHA"],
+                          "files": files}, sort_keys=True, separators=(",", ":")) + "\\n"
+          )
+          PY
       - name: Verify exported static routes and no new server runtime
         run: |
           test -f out/index.html
@@ -62,6 +82,13 @@ jobs:
           test ! -d src/app/api
           test ! -f src/proxy.ts
           test ! -f src/middleware.ts
+      - name: Upload exact-commit static preview (no secrets)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mt-panel-next-static
+          path: frontend-next/out/
+          retention-days: 14
+          if-no-files-found: error
 
   ephemeral-docker-lab:
     name: Disposable Docker Engine lab (non-production)
