@@ -374,3 +374,37 @@ python3 scripts/install-next-preview-stage.py --check \
 `AGENT_LOCAL_EXECUTION_ENABLED` on this shared VPS.
 The preview flag is unrelated to Docker writes. Do not change Caddy,
 Tailscale Serve, ports 80/443, or other applications.
+
+## Recovery: v0.3.12 Next preview enabled but panel fails to listen on 8086
+
+The original import implementation created the export in a root-owned
+`mkdtemp` directory with mode `0700`. FastAPI's `mtpanel` service
+account may be unable to traverse the promoted `frontend-next/out` path,
+so enabling the preview can prevent the panel process from starting.
+Do **not** change Docker permissions, the agent, Caddy or Tailscale.
+
+Confirm file presence and directory permissions without exposing secrets:
+
+```bash
+sudo test -f /opt/mt-panel/frontend-next/out/index.html && echo 'Preview index present'
+sudo namei -l /opt/mt-panel/frontend-next/out/index.html
+sudo journalctl -u mt-panel.service -n 50 --no-pager
+```
+
+If `/opt/mt-panel/frontend-next/out/index.html` is present and the
+`out` directory belongs to the root-owned stage but has mode `0700`,
+repair **only its traverse/read permission**:
+
+```bash
+sudo chmod 0755 /opt/mt-panel/frontend-next/out
+sudo systemctl restart mt-panel.service
+curl -fsS http://127.0.0.1:8086/api/health
+curl -I http://127.0.0.1:8086/next-preview/
+```
+
+If the panel is still unavailable, disable `PANEL_NEXT_PREVIEW_ENABLED`
+through `sudoedit /etc/mt-panel/mt-panel.env`, restart only
+`mt-panel.service`, and inspect the journal. Never dump the private
+environment file into a ticket. The importer now uses public-readable,
+root-owned `0755` directories and `0644` files for future stages;
+previously promoted builds require the one-time mode correction.
