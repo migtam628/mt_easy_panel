@@ -43,6 +43,7 @@ class Settings:
     lab_server_id: str = ""
     lab_execution_enabled: bool = False
     lab_execution_key: str = ""
+    next_preview_enabled: bool = False
 
     @classmethod
     def from_env(cls):
@@ -55,6 +56,7 @@ class Settings:
             lab_server_id=os.environ.get("PANEL_LOCAL_SERVER_ID", ""),
             lab_execution_enabled=os.environ.get("PANEL_LOCAL_EXECUTION_ENABLED") == "true",
             lab_execution_key=os.environ.get("AGENT_EXECUTION_KEY", ""),
+            next_preview_enabled=os.environ.get("PANEL_NEXT_PREVIEW_ENABLED") == "true",
         )
 
     def validate(self):
@@ -253,6 +255,14 @@ def create_app(settings: Settings | None = None, agent=None):
     agent = agent or AgentClient(settings)
     app = FastAPI(title="MT Panel", version="0.3.11-dev", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/assets", StaticFiles(directory=str(WEB_DIR)), name="assets")
+    if settings.next_preview_enabled:
+        # An explicit operator gate; static files only. No Node runtime,
+        # reverse proxy, second backend, or modified root route.
+        preview = WEB_DIR.parent / "frontend-next" / "out"
+        if not preview.is_dir() or preview.is_symlink():
+            raise RuntimeError("Static Next.js preview export missing or unsafe")
+        app.mount("/next-preview", StaticFiles(directory=str(preview), html=True),
+                  name="next-preview")
     # In-memory login throttling is a Phase 1 local guard only; production needs
     # persistent, multi-instance throttling plus MFA and reverse-proxy controls.
     login_attempts: dict[str, deque] = defaultdict(deque)
@@ -545,6 +555,7 @@ def create_app(settings: Settings | None = None, agent=None):
             "container_writes": False,
             "deployment_execution": settings.lab_execution_enabled,
             "lab_execution_enabled": settings.lab_execution_enabled,
+            "next_preview_enabled": settings.next_preview_enabled,
             "multi_user_roles": False,
             "multi_factor_auth": False,
             "security_audit": "local_sqlite",
