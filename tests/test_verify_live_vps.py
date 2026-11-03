@@ -83,6 +83,21 @@ def test_tailscale_route_requires_tailnet_only_and_specific_backend(monkeypatch)
                         lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=correct))
     with redirect_stdout(io.StringIO()):
         assert m.check_tailscale() == []
+    alternate = correct.replace(":8443 (tailnet only)", ":9443 (tailnet only)")
+    monkeypatch.setattr(m.subprocess, "run",
+                        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=alternate))
+    with redirect_stdout(io.StringIO()):
+        assert m.check_tailscale(9443) == []
+    assert m.check_tailscale()  # Default 8443 must not match 9443.
+    assert m.check_tailscale(70000)
+    alternate_public = alternate.replace(
+        "https://node.tailnet.ts.net:9443 (tailnet only)",
+        "https://node.tailnet.ts.net:9443 (public)")
+    monkeypatch.setattr(m.subprocess, "run",
+                        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=alternate_public))
+    assert m.check_tailscale(9443)  # Never accept public Funnel.
+    monkeypatch.setattr(m.subprocess, "run",
+                        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=correct))
     public = correct.replace(
         "https://node.tailnet.ts.net:8443 (tailnet only)",
         "https://node.tailnet.ts.net:8443 (public)"
