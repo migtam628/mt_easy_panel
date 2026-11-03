@@ -214,3 +214,31 @@ Next UI is an incomplete parallel preview, not a replacement. Before
 switching the root route: ensure full feature parity, frozen and
 audited dependency lock, authenticated browser/CSRF testing, trusted
 artifact provenance, accessibility and controlled fallback/rollback.
+
+## ADR-012 — Static Next hydration requires route-bound CSP script hashes
+
+**Status:** Implemented v0.3.13-dev; read-only preview remains opt-in.
+
+**Problem:** Next.js 16 static export pre-renders the session/loading
+placeholder but emits inline bootstrap and React Flight data scripts.
+The original strict `script-src 'self'` blocked those inline scripts;
+loading CSS/JS via GET 200 alone did not imply successful hydration.
+The user-facing preview therefore remained on "Checking your session".
+
+**Decision:** Keep the original CSP for legacy UI, API, agent data and
+Next external assets. For an exact opt-in Next static HTML response only,
+parse the root-owned, previously verified exported HTML at application
+startup and calculate SHA-256 CSP source expressions for each inline
+script body. Use those hashes in `script-src` alongside `'self'`.
+No user payloads, dynamic strings, URL query arguments or arbitrary
+scripts can create a hash. Bound the number and sizes of HTML/scripts.
+Unknown and ambiguous URL paths never receive expanded script policy.
+The rest of the CSP (connect, form, base, framing) is unchanged.
+
+**Consequences:** React can hydrate and perform same-origin
+`/api/auth/me` checks without `unsafe-inline`, `unsafe-eval`, a
+new Next server, or exposing agent credentials. A newly built export
+must be installed with the exact pinned commit, and Next static pages
+may produce different script hashes; recompute at service startup.
+Browser functional parity and cross-browser CSP enforcement remain
+separate release gates.

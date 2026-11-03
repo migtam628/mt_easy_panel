@@ -1,3 +1,19 @@
+## v0.3.13-dev — Next.js static hydration CSP compatibility fix
+
+- Fixes the Next preview remaining at `Checking your session…` when
+  external JS/CSS return 200 but inline Next.js bootstrap is blocked.
+- Per-html-route CSP SHA-256 hashes computed only from the installed
+  trusted static Next bundle; no broad `unsafe-inline` or `unsafe-eval`.
+- The original legacy UI, APIs and static JS files keep their strict
+  same-origin `script-src 'self'` CSP; no auth/session or execution change.
+- Python regression tests verify literal script hashes, route isolation,
+  existing 401 protections and refusal of unknown/malformed routes.
+- CI checks hashes against **actual generated Next static HTML**.
+- Improves initial loading-screen text contrast.
+- The preview remains behind `PANEL_NEXT_PREVIEW_ENABLED` and retains
+  the original private Tailscale origin. No Docker write enablement,
+  external proxy takeover or public listening port.
+
 ### v0.3.12-dev follow-up — Unprivileged Next preview file permissions
 
 - Fixed static CI preview import: the temporary validated export is kept

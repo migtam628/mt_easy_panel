@@ -1,6 +1,6 @@
 # MT Panel
 
-**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.12-dev`.
+**Independent self-hosted VPS operations dashboard.** Working project name, version `0.3.13-dev`.
 
 MT Panel is an Easypanel-style platform designed from scratch for managing Linux hosts and Docker applications. **Current release is a pilot with read-only Docker inventory and metadata-only project/server definitions**: admin login, host information, containers, images, networks, volumes, bounded container logs, persistent authentication audit, owner-scoped servers/projects/environments and strictly validated deployment drafts. No actual deployments are enabled. Private one-time agent enrollment and signed heartbeats are now available for trust establishment, but remote Docker inventory is not yet enabled. The Ubuntu 26.04 VPS pilot has been observed running with valid dashboard/agent health and live Docker inventory; later code changes remain GitHub-only until explicitly promoted.
 
@@ -455,6 +455,30 @@ See [Next migration guide](frontend-next/README.md),
 [existing VPS upgrade runbook](docs/EXISTING_VPS_UPGRADE.md).
 The frontend dependency lockfile and full legacy UI parity remain
 **production release gates**.
+
+## v0.3.13-dev — Fix Next.js stuck session screen without weakening CSP
+
+A Next.js static export contains inline JavaScript bootstrap and hydration
+payloads. The previous FastAPI policy `script-src 'self'` blocked them,
+so browsers displayed the prerendered `Checking your session…` placeholder
+forever even while the CSS and JavaScript files loaded with HTTP 200.
+
+The **opt-in preview HTML only** now receives a SHA-256 `script-src`
+hash for each exact inline script present in its trusted static HTML
+export. Hashes are calculated on startup, keyed by the precise static
+route. All other assets, `/`, `/api`, legacy dashboard and Docker
+agent retain their original `script-src 'self'` policy. **No**
+`'unsafe-inline'`, `'unsafe-eval'`, inline scripting from API data,
+new origins, JavaScript secrets or new backend is permitted.
+
+Browser tests/CI validate the actual generated Next bootstrap hashes
+and Python tests ensure API/legacy CSP and authentication remain intact.
+The session loading copy also has readable contrast on its dark screen.
+
+Use the [existing VPS upgrade instructions](docs/EXISTING_VPS_UPGRADE.md)
+to stage and promote this patch with its matching CI static artifact.
+The v0.3.12 preview remains **read-only and experimental**, and the old
+dashboard stays at `/`.
 
 ## Security boundary
 

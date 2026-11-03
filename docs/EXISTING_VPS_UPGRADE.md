@@ -408,3 +408,35 @@ through `sudoedit /etc/mt-panel/mt-panel.env`, restart only
 environment file into a ticket. The importer now uses public-readable,
 root-owned `0755` directories and `0644` files for future stages;
 previously promoted builds require the one-time mode correction.
+
+## v0.3.13-dev — Next preview stuck at “Checking your session…”
+
+**Root cause:** The legacy strict `script-src 'self'` CSP also applied to
+Next's generated inline bootstrap scripts, blocking hydration even
+though `/next-preview/` HTML, CSS and external JS were returned HTTP 200.
+
+**Production-safe upgrade:** Do not modify the running FastAPI source
+or relax CSP manually. First verify the green **v0.3.13** GitHub Actions
+run and download its `mt-panel-next-static` artifact (matching the same
+full Git commit SHA). Use `bash scripts/vps-test-sync.sh --stage`
+to create an unactivated stage. Attach the matching static bundle via
+`scripts/install-next-preview-stage.py --check` and, after PASS,
+the separately confirmed `--install`. Continue with the **exact**
+stage/SHA `scripts/promote-vps.py --check` then, after PASS, the
+separately approved `--activate` command.
+
+After activation:
+```bash
+python3 scripts/verify-live-vps.py --check --expected-version 0.3.13-dev
+python3 scripts/vps-status.py --check
+curl -fsSI http://127.0.0.1:8086/next-preview/
+```
+
+Check the browser Console for CSP blocking errors; the Next preview
+HTML should have per-script `sha256-` values in its CSP header, but
+the original dashboard and `/api/health` should still report
+`script-src 'self'` **without** `unsafe-inline` or `unsafe-eval`.
+Do not enable lab Docker writes. If preview startup fails, disable only
+`PANEL_NEXT_PREVIEW_ENABLED` and restart only `mt-panel.service`;
+the legacy dashboard is unaffected. Tailscale and other applications
+remain outside the upgrade.

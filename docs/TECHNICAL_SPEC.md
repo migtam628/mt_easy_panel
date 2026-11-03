@@ -1,6 +1,6 @@
 # MT Panel — Technical Product Specification
 
-**Version:** 0.3.12-dev (parallel Next.js static frontend migration)  
+**Version:** 0.3.13-dev (strict CSP-compatible Next.js hydration)  
 **Project status:** Current VPS read-only pilot; the isolated write path is now exercised on ephemeral CI Docker Engine but has not been authorized on the production VPS or a dedicated Tailscale lab VM.  
 **Ownership:** Independently written implementation; not an Easypanel fork, copy of its code, or compatible proprietary API.  
 **Architecture:** One unprivileged control plane, one constrained Docker inventory agent per host.  
@@ -311,3 +311,13 @@ static file hash manifest; an operator may explicitly attach it only
 to a matching unactivated release. Its use at the private
 `/next-preview/` route requires independent opt-in.
 Root `/` remains legacy until feature parity and security review.
+
+## 19. v0.3.13-dev — CSP integrity of Next.js static bootstrap
+
+FastAPI computes bounded SHA-256 hashes for trusted static HTML inline
+bootstrap scripts at service startup, and adds them only to `script-src`
+for the matching `/next-preview/` HTML path. Other routes and static
+JS/CSS continue using `script-src 'self'`. Next's React hydration
+functions without unsafe inline scripting, a second runtime, or moving
+session/authentication authority out of FastAPI. Preview default-off,
+production Docker write-disabled constraints remain unchanged.

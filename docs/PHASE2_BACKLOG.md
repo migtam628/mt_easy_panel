@@ -1,4 +1,4 @@
-# Phase 2 Build Backlog — MT Panel v0.3.12-dev
+# Phase 2 Build Backlog — MT Panel v0.3.13-dev
 
 Order matters: host identity and API hardening precede all write actions.
 
@@ -138,3 +138,16 @@ and a careful opt-in root route switch with rollback.
 **Deployment engine roadmap unchanged:** disposable VM host-condition
 attestation, evidence-backed manual host clearance, service revision
 model, then Git source builds and Compose.
+
+## v0.3.13-dev — Next preview hydration hotfix
+
+- Exact SHA-256 `script-src` allowlist generated from trusted built
+  Next HTML, scoped to its own static preview routes.
+- API, root dashboard, external JS/CSS and Docker agent keep strict CSP.
+- Regression tests cover allowed/blocked scripts, route ambiguity,
+  authenticated API, and real CI exported Next HTML hashes.
+- Initial session-loading text contrast improved.
+
+**Still pending:** browser-based end-to-end sign-in and session lifecycle,
+static bundle dependency lockfile, complete UI parity, independent host
+attestation, service revision/rollback.

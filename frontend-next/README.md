@@ -94,3 +94,18 @@ sudo systemctl restart mt-panel.service
 
 If that fails, turn the preview flag back off; do not weaken service
 sandboxing or permit Docker access to fix a static-asset issue.
+
+## v0.3.13 — Fix static Next session hydration under strict CSP
+
+The initial preview could remain stuck at "Checking your session…"
+despite HTTP 200 for assets. The legacy CSP `script-src 'self'` blocks
+Next's inline bootstrap/Flight payloads; React never hydrated to run
+`/api/auth/me`. FastAPI now calculates exact SHA-256 CSP hashes per
+installed trusted static HTML page, but only for matching preview HTML
+routes. Neither the API nor the original dashboard receives this change,
+and `unsafe-inline`/`unsafe-eval` are not enabled.
+
+Use the new revision-matched CI static bundle. This is a FastAPI header
+fix **and** an updated static build; promote them together. Existing
+v0.3.12 installation remains a safe fallback at `/` until that stage
+is explicitly activated.
