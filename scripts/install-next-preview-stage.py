@@ -20,7 +20,7 @@ import tempfile
 STAGE = re.compile(r"mt-panel-stage\.[a-zA-Z0-9]{8,16}\Z")
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
-SAFE_FILE = re.compile(r"[A-Za-z0-9_./-]{1,250}\Z")
+SAFE_FILE = re.compile(r"[A-Za-z0-9_./%+@~()\[\]-]{1,250}\Z")
 EXTENSIONS = {".html", ".js", ".css", ".json", ".txt",
               ".svg", ".png", ".jpg", ".jpeg", ".ico", ".woff", ".woff2",
               ".webp", ".xml", ".map"}
@@ -64,7 +64,7 @@ def validate_bundle(source: Path, expected_commit: str) -> list[str]:
                 or any(component in {"", ".", ".."} for component in rel.split("/"))
                 or Path(rel).suffix.lower() not in EXTENSIONS
                 or not isinstance(digest, str) or not HASH.fullmatch(digest)):
-            raise PreviewBundleError("Unsafe static asset manifest entry")
+            raise PreviewBundleError("Unsafe static asset manifest entry: " + str(rel)[:200])
         path = source
         for part in rel.split("/"):
             path = path / part
